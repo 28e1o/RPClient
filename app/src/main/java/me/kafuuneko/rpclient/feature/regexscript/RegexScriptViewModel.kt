@@ -1,7 +1,12 @@
 package me.kafuuneko.rpclient.feature.regexscript
 
 import android.content.Context
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.kafuuneko.rpclient.R
 import me.kafuuneko.rpclient.feature.regexscript.model.RegexScriptDraft
@@ -19,6 +24,7 @@ import me.kafuuneko.rpclient.libs.regex.RegexScriptEngine
 import me.kafuuneko.rpclient.libs.regex.RegexScriptRepository
 import me.kafuuneko.rpclient.libs.regex.RegexScriptRuntime
 import me.kafuuneko.rpclient.libs.regex.RegexScriptScope
+import me.kafuuneko.rpclient.libs.regex.RegexScriptTarget
 import me.kafuuneko.rpclient.libs.regex.ScopedRegexScript
 import me.kafuuneko.rpclient.libs.room.repository.CharacterRepository
 import org.koin.core.component.KoinComponent
@@ -43,6 +49,8 @@ class RegexScriptViewModel :
     private val mEngine by inject<RegexScriptEngine>()
     /** 仅用于 ContentResolver 和本地化错误文案。 */
     private val mContext by inject<Context>()
+    private var mTransferJob: Job? = null
+    private var mTransferToken: Any? = null
 
     /** 首次加载角色列表，并刷新默认全局作用域。 */
     @UiIntentObserver(RegexScriptUiIntent.Init::class)
@@ -58,6 +66,8 @@ class RegexScriptViewModel :
 
     @UiIntentObserver(RegexScriptUiIntent.Back::class)
     private fun onBack() {
+        if (isStateOf<RegexScriptUiState.Finished>()) return
+        mTransferJob?.cancel()
         RegexScriptUiState.finished(uiStateFlow.value).setup()
     }
 
@@ -126,13 +136,14 @@ class RegexScriptViewModel :
     @UiIntentObserver(RegexScriptUiIntent.CopyScript::class)
     private suspend fun onCopyScript(intent: RegexScriptUiIntent.CopyScript) {
         val state = getOrNull<RegexScriptUiState.Normal>() ?: return
-        val source = state.scripts.firstOrNull { it.id == intent.scriptId } ?: return
-        val copy = source.copy(
-            id = UUID.randomUUID().toString(),
-            scriptName = "${source.scriptName} Copy"
-        )
-        state.saveScripts(state.scripts + copy)
-        state.copy(scripts = state.scripts + copy).setup()
+        val target = state.targetOrNull() ?: return
+        mutateScripts(target) { current ->
+            val source = current.firstOrNull { it.id == intent.scriptId } ?: return@mutateScripts current
+            current + source.copy(
+                id = UUID.randomUUID().toString(),
+                scriptName = "${source.scriptName} Copy"
+            )
+        }
     }
 
     @UiIntentObserver(RegexScriptUiIntent.DeleteScriptClick::class)
@@ -148,24 +159,28 @@ class RegexScriptViewModel :
     private suspend fun onConfirmDeleteScript() {
         val state = getOrNull<RegexScriptUiState.Normal>() ?: return
         val dialog = state.dialogState as? RegexScriptDialogState.DeleteConfirm ?: return
-        val scripts = state.scripts.filterNot { it.id == dialog.scriptId }
-        state.saveScripts(scripts)
-        state.copy(scripts = scripts, dialogState = RegexScriptDialogState.None).setup()
+        val target = state.targetOrNull() ?: return
+        mutateScripts(target) { current -> current.filterNot { it.id == dialog.scriptId } }
+        getOrNull<RegexScriptUiState.Normal>()
+            ?.takeIf { it.targetOrNull() == target }
+            ?.copy(dialogState = RegexScriptDialogState.None)
+            ?.setup()
     }
 
     /** 按拖动方向移动一个位置并立即持久化新顺序。 */
     @UiIntentObserver(RegexScriptUiIntent.MoveScript::class)
     private suspend fun onMoveScript(intent: RegexScriptUiIntent.MoveScript) {
         val state = getOrNull<RegexScriptUiState.Normal>() ?: return
-        val from = state.scripts.indexOfFirst { it.id == intent.scriptId }
-        if (from < 0) return
-        val to = (from + intent.delta).coerceIn(0, state.scripts.lastIndex)
-        if (from == to) return
-        val scripts = state.scripts.toMutableList()
-        val moved = scripts.removeAt(from)
-        scripts.add(to, moved)
-        state.saveScripts(scripts)
-        state.copy(scripts = scripts).setup()
+        val target = state.targetOrNull() ?: return
+        mutateScripts(target) { current ->
+            val from = current.indexOfFirst { it.id == intent.scriptId }
+            if (from < 0) return@mutateScripts current
+            val to = (from + intent.delta).coerceIn(0, current.lastIndex)
+            if (from == to) return@mutateScripts current
+            current.toMutableList().apply {
+                add(to, removeAt(from))
+            }
+        }
     }
 
     /** 每次表单变化都重新编译 Find Regex，向 UI 返回即时错误。 */
@@ -192,11 +207,17 @@ class RegexScriptViewModel :
             return
         }
         val script = dialog.draft.toScript()
-        val scripts = state.scripts.toMutableList()
-        val index = scripts.indexOfFirst { it.id == script.id }
-        if (index < 0) scripts += script else scripts[index] = script
-        state.saveScripts(scripts)
-        state.copy(scripts = scripts, dialogState = RegexScriptDialogState.None).setup()
+        val target = state.targetOrNull() ?: return
+        mutateScripts(target) { current ->
+            current.toMutableList().apply {
+                val index = indexOfFirst { it.id == script.id }
+                if (index < 0) add(script) else this[index] = script
+            }
+        }
+        getOrNull<RegexScriptUiState.Normal>()
+            ?.takeIf { it.targetOrNull() == target }
+            ?.copy(dialogState = RegexScriptDialogState.None)
+            ?.setup()
     }
 
     @UiIntentObserver(RegexScriptUiIntent.DismissDialog::class)
@@ -208,11 +229,12 @@ class RegexScriptViewModel :
     @UiIntentObserver(RegexScriptUiIntent.ToggleScriptEnabled::class)
     private suspend fun onToggleScriptEnabled(intent: RegexScriptUiIntent.ToggleScriptEnabled) {
         val state = getOrNull<RegexScriptUiState.Normal>() ?: return
-        val scripts = state.scripts.map {
-            if (it.id == intent.scriptId) it.copy(disabled = !it.disabled) else it
+        val target = state.targetOrNull() ?: return
+        mutateScripts(target) { current ->
+            current.map {
+                if (it.id == intent.scriptId) it.copy(disabled = !it.disabled) else it
+            }
         }
-        state.saveScripts(scripts)
-        state.copy(scripts = scripts).setup()
     }
 
     @UiIntentObserver(RegexScriptUiIntent.ChangeTestInput::class)
@@ -257,63 +279,82 @@ class RegexScriptViewModel :
 
     @UiIntentObserver(RegexScriptUiIntent.ImportClick::class)
     private fun onImportClick() {
+        val state = getOrNull<RegexScriptUiState.Normal>() ?: return
+        if (state.transferInProgress) return
         RegexScriptViewEvent.OpenImporter.tryEmit()
     }
 
     /** 读取外部 JSON，修复空 ID 或冲突 ID 后追加到当前作用域。 */
     @UiIntentObserver(RegexScriptUiIntent.ImportJson::class)
-    private suspend fun onImportJson(intent: RegexScriptUiIntent.ImportJson) {
+    private fun onImportJson(intent: RegexScriptUiIntent.ImportJson) {
         val state = getOrNull<RegexScriptUiState.Normal>() ?: return
-        if (state.scope == RegexScriptScope.Character && state.selectedCharacterId == null) return
-        runCatching {
-            val json = withContext(Dispatchers.IO) {
-                mContext.contentResolver.openInputStream(intent.uri)
-                    ?.bufferedReader()
-                    ?.use { it.readText() }
-                    ?: error(mContext.getString(R.string.regex_import_failed))
-            }
-            val imported = mRepository.importScripts(json)
-            require(imported.isNotEmpty()) { mContext.getString(R.string.regex_import_failed) }
-            val existingIds = state.scripts.map { it.id }.toMutableSet()
-            val normalized = imported.map { script ->
-                if (script.id.isBlank() || !existingIds.add(script.id)) {
-                    script.copy(id = UUID.randomUUID().toString())
-                } else {
-                    script
+        val target = state.targetOrNull() ?: return
+        if (state.transferInProgress || mTransferJob?.isActive == true) return
+        val token = Any()
+        mTransferToken = token
+        state.copy(transferInProgress = true).setup()
+        mTransferJob = viewModelScope.launch {
+            try {
+                val imported = withContext(Dispatchers.IO) {
+                    mRepository.importFromUri(intent.uri)
                 }
+                require(imported.isNotEmpty())
+                val scripts = withContext(Dispatchers.IO) {
+                    mRepository.updateScripts(target) { current ->
+                        val existingIds = current.map { it.id }.toMutableSet()
+                        val normalized = imported.map { script ->
+                            if (script.id.isBlank() || !existingIds.add(script.id)) {
+                                script.copy(id = UUID.randomUUID().toString())
+                            } else {
+                                script
+                            }
+                        }
+                        current + normalized
+                    }
+                }
+                val current = getOrNull<RegexScriptUiState.Normal>()
+                if (current?.targetOrNull() == target) {
+                    current.copy(scripts = scripts).setup()
+                }
+                AppViewEvent.PopupToastMessageByResId(R.string.regex_import_success).tryEmit()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                AppViewEvent.PopupToastMessageByResId(R.string.regex_import_failed).tryEmit()
+            } finally {
+                finishTransfer(token)
             }
-            val scripts = state.scripts + normalized
-            state.saveScripts(scripts)
-            state.copy(scripts = scripts).setup()
-            AppViewEvent.PopupToastMessageByResId(R.string.regex_import_success).tryEmit()
-        }.onFailure {
-            AppViewEvent.PopupToastMessage(
-                it.message ?: mContext.getString(R.string.regex_import_failed)
-            ).tryEmit()
         }
     }
 
     @UiIntentObserver(RegexScriptUiIntent.ExportClick::class)
     private fun onExportClick() {
         val state = getOrNull<RegexScriptUiState.Normal>() ?: return
+        if (state.transferInProgress) return
         RegexScriptViewEvent.OpenExporter("regex-${state.scope.name.lowercase()}.json").tryEmit()
     }
 
     /** 将当前作用域脚本写入用户选择的 JSON 文档。 */
     @UiIntentObserver(RegexScriptUiIntent.ExportJson::class)
-    private suspend fun onExportJson(intent: RegexScriptUiIntent.ExportJson) {
+    private fun onExportJson(intent: RegexScriptUiIntent.ExportJson) {
         val state = getOrNull<RegexScriptUiState.Normal>() ?: return
-        runCatching {
-            withContext(Dispatchers.IO) {
-                mContext.contentResolver.openOutputStream(intent.uri)?.bufferedWriter()?.use {
-                    it.write(mRepository.exportScripts(state.scripts))
-                } ?: error(mContext.getString(R.string.regex_export_failed))
+        if (state.transferInProgress || mTransferJob?.isActive == true) return
+        val token = Any()
+        mTransferToken = token
+        state.copy(transferInProgress = true).setup()
+        mTransferJob = viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    mRepository.exportToUri(intent.uri, state.scripts)
+                }
+                AppViewEvent.PopupToastMessageByResId(R.string.regex_export_success).tryEmit()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                AppViewEvent.PopupToastMessageByResId(R.string.regex_export_failed).tryEmit()
+            } finally {
+                finishTransfer(token)
             }
-            AppViewEvent.PopupToastMessageByResId(R.string.regex_export_success).tryEmit()
-        }.onFailure {
-            AppViewEvent.PopupToastMessage(
-                it.message ?: mContext.getString(R.string.regex_export_failed)
-            ).tryEmit()
         }
     }
 
@@ -338,15 +379,10 @@ class RegexScriptViewModel :
     /** 根据当前作用域重读脚本与授权状态，避免页面持有跨作用域旧数据。 */
     private suspend fun RegexScriptUiState.Normal.refreshScripts(): RegexScriptUiState.Normal {
         val characterId = selectedCharacterId ?: characters.firstOrNull()?.id
-        val scripts = when (scope) {
-            RegexScriptScope.Global -> mRepository.getGlobalScripts()
-            RegexScriptScope.Preset -> mRepository.getPresetScripts()
-            RegexScriptScope.Character -> characterId?.let { id ->
-                withContext(Dispatchers.IO) {
-                    mCharacterRepository.getCharacterById(id)
-                }?.let(mRepository::getCharacterScripts)
-            }.orEmpty()
-        }
+        val target = copy(selectedCharacterId = characterId).targetOrNull()
+        val scripts = target?.let {
+            withContext(Dispatchers.IO) { mRepository.getScripts(it) }
+        }.orEmpty()
         val authorized = when (scope) {
             RegexScriptScope.Global -> true
             RegexScriptScope.Preset -> mRepository.isPresetAuthorized()
@@ -359,14 +395,37 @@ class RegexScriptViewModel :
         )
     }
 
-    /** 将列表保存到当前全局、预设或角色卡作用域。 */
-    private suspend fun RegexScriptUiState.Normal.saveScripts(scripts: List<RegexScript>) {
-        when (scope) {
-            RegexScriptScope.Global -> mRepository.saveGlobalScripts(scripts)
-            RegexScriptScope.Preset -> mRepository.savePresetScripts(scripts)
+    private suspend fun mutateScripts(
+        target: RegexScriptTarget,
+        transform: (List<RegexScript>) -> List<RegexScript>
+    ): List<RegexScript> {
+        val scripts = withContext(Dispatchers.IO) {
+            mRepository.updateScripts(target, transform)
+        }
+        val current = getOrNull<RegexScriptUiState.Normal>()
+        if (current?.targetOrNull() == target) {
+            current.copy(scripts = scripts).setup()
+        }
+        return scripts
+    }
+
+    private fun RegexScriptUiState.Normal.targetOrNull(): RegexScriptTarget? {
+        return when (scope) {
+            RegexScriptScope.Global -> RegexScriptTarget(RegexScriptScope.Global)
+            RegexScriptScope.Preset -> RegexScriptTarget(RegexScriptScope.Preset)
             RegexScriptScope.Character -> selectedCharacterId?.let {
-                mRepository.saveCharacterScripts(it, scripts)
+                RegexScriptTarget(RegexScriptScope.Character, it)
             }
         }
+    }
+
+    /** 仅由当前传输任务清理进度，页面结束后不再发布普通状态。 */
+    private fun finishTransfer(token: Any) {
+        if (mTransferToken !== token) return
+        mTransferToken = null
+        mTransferJob = null
+        getOrNull<RegexScriptUiState.Normal>()
+            ?.copy(transferInProgress = false)
+            ?.setup()
     }
 }

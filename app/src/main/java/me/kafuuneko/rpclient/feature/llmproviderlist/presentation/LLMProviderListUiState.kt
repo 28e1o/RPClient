@@ -1,13 +1,13 @@
 package me.kafuuneko.rpclient.feature.llmproviderlist.presentation
 
-import me.kafuuneko.rpclient.libs.room.entity.LLMProvider
+import me.kafuuneko.rpclient.feature.llmproviderlist.model.LLMProviderListItem
 
 /** 模型供应商列表页状态。 */
 sealed class LLMProviderListUiState {
     data object None : LLMProviderListUiState()
 
     data class Normal(
-        val providers: List<LLMProvider>,
+        val providers: List<LLMProviderListItem>,
         val loadState: LLMProviderListLoadState = LLMProviderListLoadState.None
     ) : LLMProviderListUiState()
 

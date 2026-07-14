@@ -1,6 +1,5 @@
 package me.kafuuneko.rpclient.feature.characterlist.ui
 
-import android.graphics.BitmapFactory
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -18,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
@@ -36,22 +36,25 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.flow.distinctUntilChanged
 import me.kafuuneko.rpclient.R
+import me.kafuuneko.rpclient.feature.characterlist.model.CharacterListItem
 import me.kafuuneko.rpclient.feature.characterlist.presentation.CharacterListLoadState
 import me.kafuuneko.rpclient.feature.characterlist.presentation.CharacterListUiIntent
 import me.kafuuneko.rpclient.feature.characterlist.presentation.CharacterListUiState
-import me.kafuuneko.rpclient.libs.room.entity.Character
 import me.kafuuneko.rpclient.ui.theme.AppTheme
 import me.kafuuneko.rpclient.ui.theme.CharacterAccentColors
 import me.kafuuneko.rpclient.ui.widgets.AppTopBar
@@ -80,6 +83,22 @@ private fun CharacterListNormal(
     state: CharacterListUiState.Normal,
     emit: CharacterListUiIntent.() -> Unit
 ) {
+    val listState = rememberLazyListState()
+    val avatarSizePx = with(LocalDensity.current) { 54.dp.roundToPx() }
+    LaunchedEffect(listState, state.characters, avatarSizePx) {
+        snapshotFlow {
+            listState.layoutInfo.visibleItemsInfo
+                .mapNotNull { it.key as? Long }
+                .toSet()
+        }
+            .distinctUntilChanged()
+            .collect { visibleIds ->
+                CharacterListUiIntent.VisibleCharactersChanged(
+                    characterIds = visibleIds,
+                    targetSizePx = avatarSizePx
+                ).emit()
+            }
+    }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -98,6 +117,7 @@ private fun CharacterListNormal(
             }
         )
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 18.dp),
@@ -121,14 +141,13 @@ private fun CharacterListNormal(
             if (state.loadState == CharacterListLoadState.Loading) {
                 item { LoadingRow() }
             }
-            val characters = state.filteredCharacters()
+            val characters = state.characters
             if (state.loadState != CharacterListLoadState.Loading && characters.isEmpty()) {
                 item { EmptyCharacterCard(emit) }
             }
             items(characters, key = { it.id }) { character ->
                 CharacterListCard(
                     character = character,
-                    avatarFilePath = state.avatarFilePaths[character.avatar],
                     selected = character.id == state.selectedCharacterId,
                     onClick = { CharacterListUiIntent.SelectCharacter(character.id).emit() },
                     onExport = { CharacterListUiIntent.ExportCharacterJsonClick(character.id).emit() }
@@ -200,8 +219,7 @@ private fun EmptyCharacterCard(
 
 @Composable
 private fun CharacterListCard(
-    character: Character,
-    avatarFilePath: String?,
+    character: CharacterListItem,
     selected: Boolean,
     onClick: () -> Unit,
     onExport: () -> Unit
@@ -222,9 +240,9 @@ private fun CharacterListCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             AvatarPreview(
-                avatarText = character.avatarText(),
-                avatarColor = character.avatarColor(),
-                imagePath = avatarFilePath,
+                avatarText = character.avatarText,
+                avatarColor = character.avatarColor,
+                image = character.avatarImage,
                 size = 54
             )
             Spacer(modifier = Modifier.width(12.dp))
@@ -259,7 +277,7 @@ private fun CharacterListCard(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                RpTagRow(character.getCharacterTagList(), maxCount = 4)
+                RpTagRow(character.tags, maxCount = 4)
             }
         }
     }
@@ -269,13 +287,10 @@ private fun CharacterListCard(
 private fun AvatarPreview(
     avatarText: String,
     avatarColor: Color,
-    imagePath: String?,
+    image: ImageBitmap?,
     size: Int
 ) {
-    val bitmap = remember(imagePath) {
-        imagePath?.let { BitmapFactory.decodeFile(it) }
-    }
-    if (bitmap == null) {
+    if (image == null) {
         RpAvatar(
             text = avatarText,
             color = avatarColor,
@@ -284,7 +299,7 @@ private fun AvatarPreview(
         )
     } else {
         Image(
-            bitmap = bitmap.asImageBitmap(),
+            bitmap = image,
             contentDescription = null,
             modifier = Modifier
                 .size(size.dp)
@@ -292,28 +307,6 @@ private fun AvatarPreview(
             contentScale = ContentScale.Crop
         )
     }
-}
-
-private fun CharacterListUiState.Normal.filteredCharacters(): List<Character> {
-    val keyword = searchText.trim()
-    if (keyword.isEmpty()) return characters
-    return characters.filter { character ->
-        character.name.contains(keyword, ignoreCase = true) ||
-            character.description.contains(keyword, ignoreCase = true) ||
-            character.creatorNotes.contains(keyword, ignoreCase = true) ||
-            character.personality.contains(keyword, ignoreCase = true) ||
-            character.scenario.contains(keyword, ignoreCase = true) ||
-            character.postHistoryInstructions.contains(keyword, ignoreCase = true) ||
-            character.getCharacterTagList().any { it.contains(keyword, ignoreCase = true) }
-    }
-}
-
-private fun Character.avatarText(): String {
-    return name.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
-}
-
-private fun Character.avatarColor(): Color {
-    return CharacterAccentColors[(id % CharacterAccentColors.size).toInt()]
 }
 
 @Preview(widthDp = 390, heightDp = 844, showBackground = true)
@@ -324,18 +317,13 @@ private fun CharacterListLayoutPreview() {
             uiState = CharacterListUiState.Normal(
                 selectedCharacterId = 1L,
                 characters = listOf(
-                    Character(
+                    CharacterListItem(
                         id = 1L,
                         name = "Character",
-                        avatar = "",
-                        characterTags = """["Tag"]""",
+                        tags = listOf("Tag"),
                         description = "Description",
-                        creatorNotes = "Notes",
-                        personality = "Personality",
-                        scenario = "Scenario",
-                        firstMessages = "Hello",
-                        examplesOfDialogue = "Example",
-                        postHistoryInstructions = "Instructions"
+                        avatarText = "C",
+                        avatarColor = CharacterAccentColors.first()
                     )
                 )
             ),

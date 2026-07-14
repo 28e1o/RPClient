@@ -43,7 +43,7 @@ class JsonViewerViewModel : CoreViewModel<JsonViewerUiIntent, JsonViewerUiState>
         if (parsed.isFailure) {
             JsonViewerUiState.Error(
                 title = mTitle,
-                message = parsed.exceptionOrNull()?.message.orEmpty().ifBlank { "Invalid JSON." },
+                message = "Invalid JSON.",
                 rawPreview = payload.json.toPreview()
             ).setup()
             return

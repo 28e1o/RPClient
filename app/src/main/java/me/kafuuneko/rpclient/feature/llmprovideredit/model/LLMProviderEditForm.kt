@@ -1,16 +1,15 @@
 package me.kafuuneko.rpclient.feature.llmprovideredit.model
 
-import me.kafuuneko.rpclient.libs.llm.model.LLMProviderProtocol
 import me.kafuuneko.rpclient.libs.llm.model.LLMProviderCapabilities
+import me.kafuuneko.rpclient.libs.llm.model.LLMProviderProtocol
 import me.kafuuneko.rpclient.libs.llm.model.LLMProviderType
 import me.kafuuneko.rpclient.libs.prompt.PromptPostProcessingMode
 import me.kafuuneko.rpclient.libs.room.entity.LLMProvider
 
 /**
- * LLM Provider 编辑表单。
+ * LLM Provider 编辑页的可渲染表单。
  *
- * 数值参数以字符串保留，避免 Compose 输入过程中被强制回退；只有全部参数合法且
- * `maxTokens < contextTokens` 时才能转换为 Room 实体。
+ * 密钥和自定义请求头只以“是否已配置”的形式出现，原文由 ViewModel 私有持有。
  */
 data class LLMProviderEditForm(
     val id: Long = 0L,
@@ -19,9 +18,11 @@ data class LLMProviderEditForm(
     val providerType: LLMProviderType = LLMProviderType.Custom,
     val protocol: LLMProviderProtocol = LLMProviderProtocol.OpenAICompatible,
     val baseUrl: String = "",
-    val apiKey: String = "",
+    val hasExistingApiKey: Boolean = false,
+    val apiKeyEditMode: CredentialEditMode = CredentialEditMode.KeepExisting,
     val model: String = "",
-    val customHeadersJson: String = "",
+    val hasExistingCustomHeaders: Boolean = false,
+    val customHeadersEditMode: CredentialEditMode = CredentialEditMode.KeepExisting,
     val temperature: String = "0.8",
     val topP: String = "1.0",
     val maxTokens: String = "1200",
@@ -31,33 +32,11 @@ data class LLMProviderEditForm(
     val promptPostProcessingMode: PromptPostProcessingMode = PromptPostProcessingMode.None,
     val isEnabled: Boolean = true
 ) {
-    companion object {
-        /** 从持久化 Provider 恢复编辑表单。 */
-        fun from(obj: LLMProvider) = LLMProviderEditForm(
-            id = obj.id,
-            createTime = obj.createTime,
-            name = obj.name,
-            providerType = obj.providerType,
-            protocol = obj.protocol,
-            baseUrl = obj.baseUrl,
-            apiKey = obj.apiKey,
-            model = obj.model,
-            customHeadersJson = obj.customHeadersJson,
-            temperature = obj.temperature.toString(),
-            topP = obj.topP.toString(),
-            maxTokens = obj.maxTokens.toString(),
-            contextTokens = obj.contextTokens.toString(),
-            sendTemperature = obj.sendTemperature,
-            sendTopP = obj.sendTopP,
-            promptPostProcessingMode = PromptPostProcessingMode.fromOrdinal(
-                obj.promptPostProcessingMode
-            ),
-            isEnabled = obj.isEnabled
-        )
-    }
-
-    /** 校验并转换表单；任一必需数值无效时返回 null。 */
-    fun toProviderOrNull(): LLMProvider? {
+    /** 校验并转换表单；鉴权内容由 ViewModel 在转换时显式提供。 */
+    fun toProviderOrNull(
+        apiKey: String = "",
+        customHeadersJson: String = ""
+    ): LLMProvider? {
         val parsedTemperature = temperature.toFloatOrNull() ?: return null
         val parsedTopP = topP.toFloatOrNull() ?: return null
         val parsedMaxTokens = maxTokens.toIntOrNull() ?: return null
@@ -89,7 +68,14 @@ data class LLMProviderEditForm(
     }
 }
 
-/** 比较标准化字段，判断用户是否修改了 Provider。 */
+/** 敏感字段的非敏感编辑状态；Replace 只表示 ViewModel 已持有一份确认值。 */
+enum class CredentialEditMode {
+    KeepExisting,
+    Replace,
+    Clear
+}
+
+/** 比较标准化字段，判断可渲染表单是否发生变化。 */
 fun LLMProviderEditForm.hasUnsavedChangesFrom(initialForm: LLMProviderEditForm): Boolean {
     return toComparableForm() != initialForm.toComparableForm()
 }
@@ -99,9 +85,7 @@ fun LLMProviderEditForm.toComparableForm(): LLMProviderEditForm {
     return copy(
         name = name.trim(),
         baseUrl = baseUrl.trim(),
-        apiKey = apiKey.trim(),
         model = model.trim(),
-        customHeadersJson = customHeadersJson.trim(),
         temperature = temperature.trim(),
         topP = topP.trim(),
         maxTokens = maxTokens.trim(),

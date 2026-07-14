@@ -7,9 +7,13 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.google.gson.JsonParser
 import me.kafuuneko.rpclient.R
+import me.kafuuneko.rpclient.feature.llmprovideredit.model.CredentialEditMode
 import me.kafuuneko.rpclient.feature.llmprovideredit.model.LLMProviderEditForm
+import me.kafuuneko.rpclient.feature.llmprovideredit.model.LLMProviderCredentialResolver
 import me.kafuuneko.rpclient.feature.llmprovideredit.model.hasUnsavedChangesFrom
+import me.kafuuneko.rpclient.feature.llmprovideredit.model.toEditForm
 import me.kafuuneko.rpclient.feature.llmprovideredit.presentation.LLMProviderEditDialogState
 import me.kafuuneko.rpclient.feature.llmprovideredit.presentation.LLMProviderEditLoadState
 import me.kafuuneko.rpclient.feature.llmprovideredit.presentation.LLMProviderEditMode
@@ -36,15 +40,20 @@ class LLMProviderEditViewModel :
     private val mLLMClientFactory by inject<LLMClientFactory>()
     /** 当前连接测试任务；重复测试或离开页面时用于取消旧请求。 */
     private var mTestJob: Job? = null
+    private var mApiKeyReplacement: String? = null
+    private var mCustomHeadersReplacement: String? = null
+    private var mInitialApiKey = ""
+    private var mInitialCustomHeaders = ""
 
     @UiIntentObserver(LLMProviderEditUiIntent.Init::class)
     private suspend fun onInit(intent: LLMProviderEditUiIntent.Init) {
         if (!isStateOf<LLMProviderEditUiState.None>()) return
         val provider = intent.providerId?.let { mLLMRepository.getProviderById(it) }
+        mInitialApiKey = provider?.apiKey.orEmpty()
+        mInitialCustomHeaders = provider?.customHeadersJson.orEmpty()
         LLMProviderEditUiState.Normal(
             mode = if (provider == null) LLMProviderEditMode.Create else LLMProviderEditMode.Edit,
-
-            form = provider?.let { LLMProviderEditForm.from(it) } ?: LLMProviderEditForm()
+            form = provider?.toEditForm() ?: LLMProviderEditForm()
         ).setup()
     }
 
@@ -60,7 +69,7 @@ class LLMProviderEditViewModel :
             ).setup()
             return
         }
-        LLMProviderEditUiState.finished(uiStateFlow.value).setup()
+        finishPage()
     }
 
     @UiIntentObserver(LLMProviderEditUiIntent.ChangeName::class)
@@ -86,17 +95,69 @@ class LLMProviderEditViewModel :
     private fun onChangeBaseUrl(intent: LLMProviderEditUiIntent.ChangeBaseUrl) =
         updateForm { copy(baseUrl = intent.value) }
 
-    @UiIntentObserver(LLMProviderEditUiIntent.ChangeApiKey::class)
-    private fun onChangeApiKey(intent: LLMProviderEditUiIntent.ChangeApiKey) =
-        updateForm { copy(apiKey = intent.value) }
+    @UiIntentObserver(LLMProviderEditUiIntent.ShowApiKeyEditor::class)
+    private fun onShowApiKeyEditor() = showDialog(LLMProviderEditDialogState.ApiKeyEditor)
+
+    @UiIntentObserver(LLMProviderEditUiIntent.ConfirmApiKeyReplacement::class)
+    private fun onConfirmApiKeyReplacement(
+        intent: LLMProviderEditUiIntent.ConfirmApiKeyReplacement
+    ) {
+        if (intent.value.isBlank()) {
+            AppViewEvent.PopupToastMessageByResId(R.string.api_key_required).tryEmit()
+            return
+        }
+        mApiKeyReplacement = intent.value
+        updateForm { copy(apiKeyEditMode = CredentialEditMode.Replace) }
+        closeDialog()
+    }
+
+    @UiIntentObserver(LLMProviderEditUiIntent.ClearApiKey::class)
+    private fun onClearApiKey() {
+        mApiKeyReplacement = null
+        updateForm { copy(apiKeyEditMode = CredentialEditMode.Clear) }
+    }
+
+    @UiIntentObserver(LLMProviderEditUiIntent.KeepExistingApiKey::class)
+    private fun onKeepExistingApiKey() {
+        mApiKeyReplacement = null
+        updateForm { copy(apiKeyEditMode = CredentialEditMode.KeepExisting) }
+    }
 
     @UiIntentObserver(LLMProviderEditUiIntent.ChangeModel::class)
     private fun onChangeModel(intent: LLMProviderEditUiIntent.ChangeModel) =
         updateForm { copy(model = intent.value) }
 
-    @UiIntentObserver(LLMProviderEditUiIntent.ChangeCustomHeadersJson::class)
-    private fun onChangeCustomHeadersJson(intent: LLMProviderEditUiIntent.ChangeCustomHeadersJson) =
-        updateForm { copy(customHeadersJson = intent.value) }
+    @UiIntentObserver(LLMProviderEditUiIntent.ShowCustomHeadersEditor::class)
+    private fun onShowCustomHeadersEditor() =
+        showDialog(LLMProviderEditDialogState.CustomHeadersEditor)
+
+    @UiIntentObserver(LLMProviderEditUiIntent.ConfirmCustomHeadersReplacement::class)
+    private fun onConfirmCustomHeadersReplacement(
+        intent: LLMProviderEditUiIntent.ConfirmCustomHeadersReplacement
+    ) {
+        val isObject = runCatching {
+            JsonParser.parseString(intent.value).isJsonObject
+        }.getOrDefault(false)
+        if (!isObject) {
+            AppViewEvent.PopupToastMessageByResId(R.string.custom_headers_json_invalid).tryEmit()
+            return
+        }
+        mCustomHeadersReplacement = intent.value
+        updateForm { copy(customHeadersEditMode = CredentialEditMode.Replace) }
+        closeDialog()
+    }
+
+    @UiIntentObserver(LLMProviderEditUiIntent.ClearCustomHeaders::class)
+    private fun onClearCustomHeaders() {
+        mCustomHeadersReplacement = null
+        updateForm { copy(customHeadersEditMode = CredentialEditMode.Clear) }
+    }
+
+    @UiIntentObserver(LLMProviderEditUiIntent.KeepExistingCustomHeaders::class)
+    private fun onKeepExistingCustomHeaders() {
+        mCustomHeadersReplacement = null
+        updateForm { copy(customHeadersEditMode = CredentialEditMode.KeepExisting) }
+    }
 
     @UiIntentObserver(LLMProviderEditUiIntent.ChangeTemperature::class)
     private fun onChangeTemperature(intent: LLMProviderEditUiIntent.ChangeTemperature) =
@@ -141,11 +202,12 @@ class LLMProviderEditViewModel :
         AppViewEvent.PopupToastMessageByResId(
             if (uiState.mode == LLMProviderEditMode.Create) R.string.model_created else R.string.model_saved
         ).tryEmit()
-        LLMProviderEditUiState.finished(uiStateFlow.value).setup()
+        finishPage()
     }
 
     @UiIntentObserver(LLMProviderEditUiIntent.TestClick::class)
     private fun onTestClick() {
+        if (!isStateOf<LLMProviderEditUiState.Normal>()) return
         if (mTestJob?.isActive == true) return
         val uiState = getOrNull<LLMProviderEditUiState.Normal>() ?: return
         val provider = uiState.form.toProviderOrNullWithToast() ?: return
@@ -166,12 +228,10 @@ class LLMProviderEditViewModel :
                 ).setup()
             } catch (_: CancellationException) {
                 // Cancellation is an expected user action and should not be shown as a failure.
-            } catch (throwable: Throwable) {
+            } catch (_: Throwable) {
                 val latestState = getOrNull<LLMProviderEditUiState.Normal>() ?: return@launch
                 latestState.copy(
-                    testState = LLMProviderEditTestState.Failed(
-                        throwable.message ?: "Test failed"
-                    )
+                    testState = LLMProviderEditTestState.Failed
                 ).setup()
             } finally {
                 if (mTestJob === runningJob) mTestJob = null
@@ -181,6 +241,7 @@ class LLMProviderEditViewModel :
 
     @UiIntentObserver(LLMProviderEditUiIntent.CancelTest::class)
     private fun onCancelTest() {
+        if (!isStateOf<LLMProviderEditUiState.Normal>()) return
         cancelTest()
         val uiState = getOrNull<LLMProviderEditUiState.Normal>() ?: return
         if (uiState.testState is LLMProviderEditTestState.Testing) {
@@ -195,19 +256,20 @@ class LLMProviderEditViewModel :
 
     override fun onCleared() {
         cancelTest()
+        clearSensitiveDrafts()
         super.onCleared()
     }
 
     @UiIntentObserver(LLMProviderEditUiIntent.ConfirmDiscardChanges::class)
     private fun onConfirmDiscardChanges() {
+        if (!isStateOf<LLMProviderEditUiState.Normal>()) return
         cancelTest()
-        LLMProviderEditUiState.finished(uiStateFlow.value).setup()
+        finishPage()
     }
 
     @UiIntentObserver(LLMProviderEditUiIntent.DismissDialog::class)
     private fun onDismissDialog() {
-        val uiState = getOrNull<LLMProviderEditUiState.Normal>() ?: return
-        uiState.copy(dialogState = LLMProviderEditDialogState.None).setup()
+        closeDialog()
     }
 
     /**
@@ -238,11 +300,43 @@ class LLMProviderEditViewModel :
             AppViewEvent.PopupToastMessageByResId(R.string.model_name_required).tryEmit()
             return null
         }
-        val provider = toProviderOrNull()
+        val credentials = LLMProviderCredentialResolver.resolve(
+            form = this,
+            initialApiKey = mInitialApiKey,
+            initialCustomHeaders = mInitialCustomHeaders,
+            apiKeyReplacement = mApiKeyReplacement,
+            customHeadersReplacement = mCustomHeadersReplacement
+        ) ?: return null
+        val provider = toProviderOrNull(
+            apiKey = credentials.apiKey,
+            customHeadersJson = credentials.customHeadersJson
+        )
         if (provider == null) {
             AppViewEvent.PopupToastMessageByResId(R.string.generation_params_invalid).tryEmit()
         }
         return provider
+    }
+
+    private fun showDialog(dialogState: LLMProviderEditDialogState) {
+        val uiState = getOrNull<LLMProviderEditUiState.Normal>() ?: return
+        uiState.copy(dialogState = dialogState).setup()
+    }
+
+    private fun closeDialog() {
+        val uiState = getOrNull<LLMProviderEditUiState.Normal>() ?: return
+        uiState.copy(dialogState = LLMProviderEditDialogState.None).setup()
+    }
+
+    private fun finishPage() {
+        clearSensitiveDrafts()
+        LLMProviderEditUiState.finished(uiStateFlow.value).setup()
+    }
+
+    private fun clearSensitiveDrafts() {
+        mApiKeyReplacement = null
+        mCustomHeadersReplacement = null
+        mInitialApiKey = ""
+        mInitialCustomHeaders = ""
     }
 
 }

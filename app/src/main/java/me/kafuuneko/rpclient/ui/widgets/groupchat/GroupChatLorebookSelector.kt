@@ -1,4 +1,4 @@
-package me.kafuuneko.rpclient.feature.groupchat.ui
+package me.kafuuneko.rpclient.ui.widgets.groupchat
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -34,8 +34,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import me.kafuuneko.rpclient.R
-import me.kafuuneko.rpclient.feature.groupchat.model.GroupChatLorebookEntryItem
-import me.kafuuneko.rpclient.feature.groupchat.model.GroupChatLorebookGroupItem
+import me.kafuuneko.rpclient.libs.groupchat.model.GroupChatLorebookEntryItem
+import me.kafuuneko.rpclient.libs.groupchat.model.GroupChatLorebookGroupItem
 import me.kafuuneko.rpclient.libs.utils.toggle
 import me.kafuuneko.rpclient.ui.widgets.RpIconBubble
 import me.kafuuneko.rpclient.ui.widgets.RpTagRow
@@ -44,13 +44,13 @@ import me.kafuuneko.rpclient.ui.widgets.RpTagRow
 @Composable
 fun GroupChatLorebookSelector(
     groups: List<GroupChatLorebookGroupItem>,
+    visibleGroups: List<GroupChatLorebookGroupItem>,
     query: String,
     onQueryChange: (String) -> Unit,
     onToggleLorebook: (Long) -> Unit,
     onToggleEntry: (Long) -> Unit
 ) {
     var expandedLorebookIds by remember { mutableStateOf(emptySet<Long>()) }
-    val filteredGroups = groups.filterForQuery(query)
     val isSearching = query.isNotBlank()
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -68,14 +68,14 @@ fun GroupChatLorebookSelector(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            filteredGroups.isEmpty() -> {
+            visibleGroups.isEmpty() -> {
                 Text(
                     text = stringResource(R.string.no_world_book_search_results),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            else -> filteredGroups.forEach { group ->
+            else -> visibleGroups.forEach { group ->
                 val expanded = isSearching || group.lorebookId in expandedLorebookIds
                 LorebookGroup(
                     group = group,
@@ -241,30 +241,5 @@ private fun LorebookSearchField(
 }
 
 /** 按世界书名称、条目名称、内容和关键词过滤分组。 */
-private fun List<GroupChatLorebookGroupItem>.filterForQuery(
-    query: String
-): List<GroupChatLorebookGroupItem> {
-    val normalizedQuery = query.trim()
-    if (normalizedQuery.isBlank()) return this
-    return mapNotNull { group ->
-        val groupMatches =
-            group.lorebookName.contains(normalizedQuery, ignoreCase = true)
-        val matchingEntries = group.entries.filter {
-            it.matchesQuery(normalizedQuery)
-        }
-        when {
-            groupMatches -> group
-            matchingEntries.isNotEmpty() -> group.copy(entries = matchingEntries)
-            else -> null
-        }
-    }
-}
 
 /** 判断条目是否命中世界书搜索词。 */
-private fun GroupChatLorebookEntryItem.matchesQuery(query: String): Boolean {
-    return lorebookName.contains(query, ignoreCase = true) ||
-        name.contains(query, ignoreCase = true) ||
-        content.contains(query, ignoreCase = true) ||
-        keywords.any { it.contains(query, ignoreCase = true) } ||
-        secondaryKeywords.any { it.contains(query, ignoreCase = true) }
-}

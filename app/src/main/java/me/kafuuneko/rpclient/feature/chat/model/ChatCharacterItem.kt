@@ -1,6 +1,7 @@
 package me.kafuuneko.rpclient.feature.chat.model
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 
 /** 单聊页面使用的角色卡展示快照，包含 Prompt 相关字段和头像展示信息。 */
 data class ChatCharacterItem(
@@ -14,5 +15,5 @@ data class ChatCharacterItem(
     val creatorNotes: String,
     val avatarText: String,
     val accentColor: Color,
-    val avatarFilePath: String? = null
+    val avatarImage: ImageBitmap? = null
 )

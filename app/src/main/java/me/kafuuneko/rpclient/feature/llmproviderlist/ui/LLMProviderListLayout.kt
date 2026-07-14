@@ -38,12 +38,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import me.kafuuneko.rpclient.R
+import me.kafuuneko.rpclient.feature.llmproviderlist.model.LLMProviderListItem
 import me.kafuuneko.rpclient.feature.llmproviderlist.presentation.LLMProviderListLoadState
 import me.kafuuneko.rpclient.feature.llmproviderlist.presentation.LLMProviderListUiIntent
 import me.kafuuneko.rpclient.feature.llmproviderlist.presentation.LLMProviderListUiState
 import me.kafuuneko.rpclient.libs.llm.model.LLMProviderProtocol
 import me.kafuuneko.rpclient.libs.llm.model.LLMProviderType
-import me.kafuuneko.rpclient.libs.room.entity.LLMProvider
 import me.kafuuneko.rpclient.ui.theme.AppTheme
 import me.kafuuneko.rpclient.ui.widgets.AppTopBar
 import me.kafuuneko.rpclient.ui.widgets.RpIconBubble
@@ -138,7 +138,7 @@ private fun LoadingRow() {
 
 @Composable
 private fun ProviderListCard(
-    provider: LLMProvider,
+    provider: LLMProviderListItem,
     onClick: () -> Unit,
     onCheckedChange: (Boolean) -> Unit
 ) {
@@ -198,15 +198,15 @@ private fun ProviderListCard(
 }
 
 @Composable
-private fun LLMProvider.typeText(): String {
+private fun LLMProviderListItem.typeText(): String {
     return "${providerType.name} / ${protocol.name}"
 }
 
 @Composable
-private fun LLMProvider.statusText(): String {
+private fun LLMProviderListItem.statusText(): String {
     return when {
         !isEnabled -> stringResource(R.string.not_enabled)
-        apiKey.isBlank() -> stringResource(R.string.pending_config)
+        !hasApiKey -> stringResource(R.string.pending_config)
         else -> stringResource(R.string.available)
     }
 }
@@ -218,7 +218,7 @@ private fun LLMProviderListLayoutPreview() {
         LLMProviderListLayout(
             uiState = LLMProviderListUiState.Normal(
                 providers = listOf(
-                    LLMProvider(
+                    LLMProviderListItem(
                         id = 1,
                         name = "OpenRouter",
                         providerType = LLMProviderType.OpenRouter,
@@ -227,7 +227,7 @@ private fun LLMProviderListLayoutPreview() {
                         model = "~anthropic/claude-sonnet-latest",
                         isEnabled = true
                     ),
-                    LLMProvider(
+                    LLMProviderListItem(
                         id = 2,
                         name = "Gemini",
                         providerType = LLMProviderType.Gemini,

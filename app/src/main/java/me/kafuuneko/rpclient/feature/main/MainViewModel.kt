@@ -2,6 +2,7 @@ package me.kafuuneko.rpclient.feature.main
 
 import android.content.Context
 import android.os.Bundle
+import androidx.compose.ui.graphics.asImageBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import me.kafuuneko.rpclient.R
@@ -15,7 +16,9 @@ import me.kafuuneko.rpclient.feature.llmproviderlist.LLMProviderListActivity
 import me.kafuuneko.rpclient.feature.main.presentation.MainDialogState
 import me.kafuuneko.rpclient.feature.main.presentation.MainHomeState
 import me.kafuuneko.rpclient.feature.main.model.MainChatSessionItem
+import me.kafuuneko.rpclient.feature.main.model.MainChatSessionGroup
 import me.kafuuneko.rpclient.feature.main.model.MainGroupChatSessionItem
+import me.kafuuneko.rpclient.feature.main.model.MainProviderItem
 import me.kafuuneko.rpclient.feature.main.model.MainSessionType
 import me.kafuuneko.rpclient.feature.main.presentation.MainPage
 import me.kafuuneko.rpclient.feature.main.presentation.MainSettingsState
@@ -85,10 +88,10 @@ class MainViewModel : CoreViewModelWithEvent<MainUiIntent, MainUiState>(
             homeState = buildHomeState(),
             settingsState = uiState.settingsState.copy(
                 selectedProviderId = selectedProvider?.id?.toString().orEmpty(),
-                providers = providers,
+                providers = providers.map { it.toMainProviderItem() },
                 userName = AppModel.userName,
-                userAvatar = AppModel.userAvatar,
-                userAvatarFilePath = resolveUserAvatarPath(),
+                hasUserAvatar = AppModel.userAvatar.isNotBlank(),
+                userAvatarImage = resolveUserAvatarImage(),
                 userDescription = AppModel.userDescription,
                 temperature = selectedProvider?.temperature ?: 0f,
                 topP = selectedProvider?.topP ?: 0f,
@@ -212,6 +215,7 @@ class MainViewModel : CoreViewModelWithEvent<MainUiIntent, MainUiState>(
 
     @UiIntentObserver(MainUiIntent.OpenChat::class)
     private fun onOpenChat(intent: MainUiIntent.OpenChat) {
+        if (!isStateOf<MainUiState.Normal>()) return
         AppViewEvent.StartActivity(
             activity = ChatActivity::class.java,
             extras = Bundle().apply { putString(ChatActivity.EXTRA_SESSION_ID, intent.sessionId) }
@@ -220,11 +224,13 @@ class MainViewModel : CoreViewModelWithEvent<MainUiIntent, MainUiState>(
 
     @UiIntentObserver(MainUiIntent.OpenCreateChat::class)
     private fun onOpenCreateChat() {
+        if (!isStateOf<MainUiState.Normal>()) return
         AppViewEvent.StartActivity(ChatCreateActivity::class.java).tryEmit()
     }
 
     @UiIntentObserver(MainUiIntent.OpenGroupChat::class)
     private fun onOpenGroupChat(intent: MainUiIntent.OpenGroupChat) {
+        if (!isStateOf<MainUiState.Normal>()) return
         AppViewEvent.StartActivity(
             activity = GroupChatActivity::class.java,
             extras = Bundle().apply {
@@ -235,21 +241,25 @@ class MainViewModel : CoreViewModelWithEvent<MainUiIntent, MainUiState>(
 
     @UiIntentObserver(MainUiIntent.OpenCreateGroupChat::class)
     private fun onOpenCreateGroupChat() {
+        if (!isStateOf<MainUiState.Normal>()) return
         AppViewEvent.StartActivity(GroupChatCreateActivity::class.java).tryEmit()
     }
 
     @UiIntentObserver(MainUiIntent.OpenCharacterManager::class)
     private fun onOpenCharacterManager() {
+        if (!isStateOf<MainUiState.Normal>()) return
         AppViewEvent.StartActivity(CharacterListActivity::class.java).tryEmit()
     }
 
     @UiIntentObserver(MainUiIntent.OpenWorldBookManager::class)
     private fun onOpenWorldBookManager() {
+        if (!isStateOf<MainUiState.Normal>()) return
         AppViewEvent.StartActivity(WorldBookListActivity::class.java).tryEmit()
     }
 
     @UiIntentObserver(MainUiIntent.OpenProviderManager::class)
     private fun onOpenProviderManager() {
+        if (!isStateOf<MainUiState.Normal>()) return
         AppViewEvent.StartActivity(LLMProviderListActivity::class.java).tryEmit()
     }
 
@@ -281,8 +291,8 @@ class MainViewModel : CoreViewModelWithEvent<MainUiIntent, MainUiState>(
         }
         uiState.copy(
             settingsState = uiState.settingsState.copy(
-                userAvatar = avatarUuid,
-                userAvatarFilePath = resolveUserAvatarPath()
+                hasUserAvatar = true,
+                userAvatarImage = resolveUserAvatarImage()
             )
         ).setup()
     }
@@ -301,29 +311,33 @@ class MainViewModel : CoreViewModelWithEvent<MainUiIntent, MainUiState>(
         }
         uiState.copy(
             settingsState = uiState.settingsState.copy(
-                userAvatar = "",
-                userAvatarFilePath = null
+                hasUserAvatar = false,
+                userAvatarImage = null
             )
         ).setup()
     }
 
     @UiIntentObserver(MainUiIntent.OpenPromptPreset::class)
     private fun onOpenPromptPreset() {
+        if (!isStateOf<MainUiState.Normal>()) return
         AppViewEvent.StartActivity(PromptPresetActivity::class.java).tryEmit()
     }
 
     @UiIntentObserver(MainUiIntent.OpenRegexScripts::class)
     private fun onOpenRegexScripts() {
+        if (!isStateOf<MainUiState.Normal>()) return
         AppViewEvent.StartActivity(RegexScriptActivity::class.java).tryEmit()
     }
 
     @UiIntentObserver(MainUiIntent.OpenRequestLogs::class)
     private fun onOpenRequestLogs() {
+        if (!isStateOf<MainUiState.Normal>()) return
         AppViewEvent.StartActivity(RequestLogActivity::class.java).tryEmit()
     }
 
     @UiIntentObserver(MainUiIntent.OpenAbout::class)
     private fun onOpenAbout() {
+        if (!isStateOf<MainUiState.Normal>()) return
         AppViewEvent.StartActivity(AboutActivity::class.java).tryEmit()
     }
 
@@ -357,7 +371,7 @@ class MainViewModel : CoreViewModelWithEvent<MainUiIntent, MainUiState>(
             selectedPage = MainPage.Settings,
             settingsState = uiState.settingsState.copy(
                 selectedProviderId = intent.providerId,
-                providers = providers,
+                providers = providers.map { it.toMainProviderItem() },
                 temperature = selectedProvider?.temperature ?: uiState.settingsState.temperature,
                 topP = selectedProvider?.topP ?: uiState.settingsState.topP,
                 maxTokens = selectedProvider?.maxTokens ?: uiState.settingsState.maxTokens,
@@ -452,16 +466,15 @@ class MainViewModel : CoreViewModelWithEvent<MainUiIntent, MainUiState>(
     private suspend fun onSelectPostProcessingMode(intent: MainUiIntent.SelectPostProcessingMode) {
         val uiState = getOrNull<MainUiState.Normal>() ?: return
         val providerId = uiState.settingsState.selectedProviderId.toLongOrNull() ?: return
-        val provider = uiState.settingsState.providers.firstOrNull { it.id == providerId } ?: return
+        val provider = withContext(Dispatchers.IO) {
+            mLLMRepository.getProviderById(providerId)
+        } ?: return
         val updatedProvider = provider.copy(promptPostProcessingMode = intent.mode.ordinal)
         withContext(Dispatchers.IO) {
             mLLMRepository.saveProvider(updatedProvider)
         }
         uiState.copy(
             settingsState = uiState.settingsState.copy(
-                providers = uiState.settingsState.providers.map {
-                    if (it.id == providerId) updatedProvider else it
-                },
                 promptPostProcessingMode = intent.mode
             )
         ).setup()
@@ -491,9 +504,16 @@ class MainViewModel : CoreViewModelWithEvent<MainUiIntent, MainUiState>(
             val characterMap = characters.associateBy { it.id }
             val sessions = mChatRepository.getAllSessions()
             val groupSessions = mGroupChatRepository.getAllSessions()
+            val sessionItems = sessions.map { session ->
+                session.toUiModel(characterMap[session.characterId])
+            }
             MainHomeState(
-                recentSessions = sessions.map { session ->
-                    session.toUiModel(characterMap[session.characterId])
+                sessionGroups = sessionItems.groupBy { it.characterId }.map { (id, items) ->
+                    MainChatSessionGroup(
+                        characterId = id,
+                        characterName = items.firstOrNull()?.characterName.orEmpty(),
+                        sessions = items
+                    )
                 },
                 groupChatSessions = groupSessions.map { session ->
                     val data = mGroupChatRepository.getGroupChatData(session.id)
@@ -523,11 +543,11 @@ class MainViewModel : CoreViewModelWithEvent<MainUiIntent, MainUiState>(
     ): MainSettingsState {
         return MainSettingsState(
             userName = AppModel.userName,
-            userAvatar = AppModel.userAvatar,
-            userAvatarFilePath = resolveUserAvatarPath(),
+            hasUserAvatar = AppModel.userAvatar.isNotBlank(),
+            userAvatarImage = resolveUserAvatarImage(),
             userDescription = AppModel.userDescription,
             selectedProviderId = selectedProvider?.id?.toString().orEmpty(),
-            providers = providers,
+            providers = providers.map { it.toMainProviderItem() },
             temperature = selectedProvider?.temperature ?: 0.8f,
             topP = selectedProvider?.topP ?: 1.0f,
             maxTokens = selectedProvider?.maxTokens ?: 1200,
@@ -552,6 +572,17 @@ class MainViewModel : CoreViewModelWithEvent<MainUiIntent, MainUiState>(
         return PromptPostProcessingMode.fromOrdinal(promptPostProcessingMode)
     }
 
+    private fun LLMProvider.toMainProviderItem(): MainProviderItem {
+        return MainProviderItem(
+            id = id,
+            name = name,
+            baseUrl = baseUrl,
+            model = model,
+            isEnabled = isEnabled,
+            hasApiKey = apiKey.isNotBlank()
+        )
+    }
+
     private fun readSummaryInjectionPosition(): SummaryInjectionPosition {
         return SummaryInjectionPosition.fromPersistedValue(AppModel.summaryInjectionPosition)
     }
@@ -560,11 +591,10 @@ class MainViewModel : CoreViewModelWithEvent<MainUiIntent, MainUiState>(
         return SummaryInjectionRole.fromPersistedValue(AppModel.summaryInjectionRole)
     }
 
-    private suspend fun resolveUserAvatarPath(): String? {
-        return AppModel.userAvatar
+    private suspend fun resolveUserAvatarImage() =
+        AppModel.userAvatar
             .takeIf { it.isNotBlank() }
-            ?.let { withContext(Dispatchers.IO) { mFileRepository.getFile(it)?.absolutePath } }
-    }
+            ?.let { withContext(Dispatchers.IO) { mFileRepository.loadBitmap(it)?.asImageBitmap() } }
 
     private fun updateSummaryInt(
         value: String,

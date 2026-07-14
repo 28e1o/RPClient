@@ -189,7 +189,7 @@ TODO 必须说明后续动作和触发条件，不写空泛占位。
 7. 数据访问是否通过 Repository/Codec/Builder/Runtime？
 8. 新 Repository/Builder/Runtime 是否注册 Koin？
 9. 新 Room 表是否更新 `AppDatabase`？
-10. 是否避免泄露 API Key、请求头、私密对话、真实路径和完整原始响应？
+10. 是否避免在普通状态、提示或非调试日志中泄露 API Key、请求头、私密对话、真实路径和完整原始响应？
 11. 涉及 Prompt、世界书、Regex 或 Provider 时是否补充对应单元测试？
 12. 新增注释是否解释了必要约束，而不是复述代码？
 13. 是否运行最小验证？

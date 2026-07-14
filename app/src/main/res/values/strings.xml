@@ -370,6 +370,19 @@
     <string name="provider_send_top_p">Send top_p</string>
     <string name="prompt_post_processing_provider_title">Provider prompt post-processing</string>
     <string name="custom_headers_json">Custom Request Headers JSON</string>
+    <string name="credential_not_set">Not configured</string>
+    <string name="credential_keep_existing">Keep the existing saved value</string>
+    <string name="credential_replace_on_save">A confirmed replacement will be used for test and save</string>
+    <string name="credential_clear_on_save">The saved value will be cleared</string>
+    <string name="credential_set">Set</string>
+    <string name="credential_replace">Replace</string>
+    <string name="credential_clear">Clear</string>
+    <string name="credential_undo_change">Undo change</string>
+    <string name="api_key_editor_title">Set API key</string>
+    <string name="custom_headers_editor_title">Set custom request headers</string>
+    <string name="credential_editor_privacy_note">This value stays only in the current editor until you confirm it. Leave this dialog to discard the unconfirmed input.</string>
+    <string name="api_key_required">API key cannot be empty. Use Clear to remove it.</string>
+    <string name="custom_headers_json_invalid">Custom headers must be a valid JSON object.</string>
     <string name="save">Save</string>
     <string name="model_test">Model Test</string>
     <string name="send_short_message">Send a short message to verify connection</string>
@@ -635,4 +648,12 @@
     <string name="regex_temporary">temporary</string>
     <string name="prompt_inspector_regex_title">Regex executions (%1$d)</string>
     <string name="prompt_inspector_regex_errors">Regex errors (%1$d)</string>
+    <string name="generation_error_no_provider">No enabled model provider is available.</string>
+    <string name="generation_error_prompt_budget">The required prompt (%1$d tokens) exceeds the available input budget (%2$d tokens).</string>
+    <string name="generation_error_unauthorized">The model provider rejected the credentials.</string>
+    <string name="generation_error_forbidden">The model provider denied this request.</string>
+    <string name="generation_error_rate_limited">The model provider is busy. Try again later.</string>
+    <string name="generation_error_http">The model provider returned HTTP %1$d.</string>
+    <string name="generation_error_network">Could not reach the model provider. Check the network and try again.</string>
+    <string name="generation_error_empty_response">The model returned an empty response.</string>
 </resources>

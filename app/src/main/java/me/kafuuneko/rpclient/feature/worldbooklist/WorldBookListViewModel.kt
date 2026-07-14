@@ -1,7 +1,12 @@
 package me.kafuuneko.rpclient.feature.worldbooklist
 
 import android.os.Bundle
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.kafuuneko.rpclient.feature.worldbookedit.WorldBookEditActivity
 import me.kafuuneko.rpclient.feature.worldbooklist.model.WorldBookListItem
@@ -14,7 +19,6 @@ import me.kafuuneko.rpclient.libs.core.CoreViewModelWithEvent
 import me.kafuuneko.rpclient.libs.core.UiIntentObserver
 import me.kafuuneko.rpclient.libs.room.repository.LorebookRepository
 import me.kafuuneko.rpclient.R
-import android.content.Context
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
@@ -23,7 +27,9 @@ class WorldBookListViewModel : CoreViewModelWithEvent<WorldBookListUiIntent, Wor
     WorldBookListUiState.None
 ), KoinComponent {
     private val mLorebookRepository by inject<LorebookRepository>()
-    private val mContext by inject<Context>()
+    private var mTransferJob: Job? = null
+    private var mTransferToken: Any? = null
+    private var mRefreshGeneration: Long = 0L
 
     @UiIntentObserver(WorldBookListUiIntent.Init::class)
     private suspend fun onInit() {
@@ -35,21 +41,29 @@ class WorldBookListViewModel : CoreViewModelWithEvent<WorldBookListUiIntent, Wor
     @UiIntentObserver(WorldBookListUiIntent.Resume::class)
     private suspend fun onResume() {
         if (!isStateOf<WorldBookListUiState.Normal>()) return
+        // Activity Result 先于 onResume 交付；导入或导出任务负责结束 Loading。
+        if (mTransferJob?.isActive == true) return
         refreshLorebooks()
     }
 
     @UiIntentObserver(WorldBookListUiIntent.Back::class)
     private fun onBack() {
+        if (isStateOf<WorldBookListUiState.Finished>()) return
+        mRefreshGeneration++
+        mTransferJob?.cancel()
         WorldBookListUiState.finished(uiStateFlow.value).setup()
     }
 
     @UiIntentObserver(WorldBookListUiIntent.CreateWorldBook::class)
     private fun onCreateWorldBook() {
+        if (!isStateOf<WorldBookListUiState.Normal>()) return
         AppViewEvent.StartActivity(WorldBookEditActivity::class.java).tryEmit()
     }
 
     @UiIntentObserver(WorldBookListUiIntent.EditWorldBook::class)
     private fun onEditWorldBook(intent: WorldBookListUiIntent.EditWorldBook) {
+        val uiState = getOrNull<WorldBookListUiState.Normal>() ?: return
+        if (uiState.lorebooks.none { it.id == intent.lorebookId }) return
         AppViewEvent.StartActivity(
             activity = WorldBookEditActivity::class.java,
             extras = Bundle().apply {
@@ -59,7 +73,8 @@ class WorldBookListViewModel : CoreViewModelWithEvent<WorldBookListUiIntent, Wor
     }
 
     private suspend fun refreshLorebooks() {
-        val uiState = getOrNull<WorldBookListUiState.Normal>() ?: return
+        if (!isStateOf<WorldBookListUiState.Normal>()) return
+        val generation = ++mRefreshGeneration
         val items = withContext(Dispatchers.IO) {
             mLorebookRepository.getAllLorebooks().map { lorebook ->
                 WorldBookListItem.from(
@@ -68,7 +83,9 @@ class WorldBookListViewModel : CoreViewModelWithEvent<WorldBookListUiIntent, Wor
                 )
             }
         }
-        uiState.copy(
+        if (generation != mRefreshGeneration) return
+        val current = getOrNull<WorldBookListUiState.Normal>() ?: return
+        current.copy(
             loadState = WorldBookListLoadState.None,
             lorebooks = items
         ).setup()
@@ -76,32 +93,37 @@ class WorldBookListViewModel : CoreViewModelWithEvent<WorldBookListUiIntent, Wor
 
     @UiIntentObserver(WorldBookListUiIntent.ImportWorldBookClick::class)
     private fun onImportWorldBookClick() {
+        if (!isStateOf<WorldBookListUiState.Normal>()) return
         WorldBookListViewEvent.OpenWorldBookImporter.tryEmit()
     }
 
     @UiIntentObserver(WorldBookListUiIntent.ImportWorldBook::class)
-    private suspend fun onImportWorldBook(intent: WorldBookListUiIntent.ImportWorldBook) {
+    private fun onImportWorldBook(intent: WorldBookListUiIntent.ImportWorldBook) {
         val uiState = getOrNull<WorldBookListUiState.Normal>() ?: return
+        if (uiState.loadState != WorldBookListLoadState.None || mTransferJob?.isActive == true) return
+        val token = Any()
+        mTransferToken = token
         uiState.copy(loadState = WorldBookListLoadState.Loading).setup()
-        
-        runCatching {
-            withContext(Dispatchers.IO) { mLorebookRepository.importFromUri(intent.uri) }
-        }.getOrElse {
-            AppViewEvent.PopupToastMessage(it.message ?: mContext.getString(R.string.import_world_book_failed)).tryEmit()
-            refreshLorebooks()
-            return
+        mTransferJob = viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) { mLorebookRepository.importFromUri(intent.uri) }
+                AppViewEvent.PopupToastMessageByResId(R.string.import_world_book_success).tryEmit()
+                refreshLorebooks()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                AppViewEvent.PopupToastMessageByResId(R.string.import_world_book_failed).tryEmit()
+                refreshLorebooks()
+            } finally {
+                finishTransfer(token)
+            }
         }
-        
-        AppViewEvent.PopupToastMessageByResId(R.string.import_world_book_success).tryEmit()
-        refreshLorebooks()
     }
 
     @UiIntentObserver(WorldBookListUiIntent.ExportWorldBookClick::class)
-    private suspend fun onExportWorldBookClick(intent: WorldBookListUiIntent.ExportWorldBookClick) {
-        val lorebook = withContext(Dispatchers.IO) {
-            mLorebookRepository.getLorebookById(intent.lorebookId)
-        } ?: return
-        
+    private fun onExportWorldBookClick(intent: WorldBookListUiIntent.ExportWorldBookClick) {
+        val uiState = getOrNull<WorldBookListUiState.Normal>() ?: return
+        val lorebook = uiState.lorebooks.firstOrNull { it.id == intent.lorebookId } ?: return
         WorldBookListViewEvent.OpenWorldBookExporter(
             lorebookId = intent.lorebookId,
             fileName = "${lorebook.name.ifBlank { "worldbook" }}.json"
@@ -109,24 +131,36 @@ class WorldBookListViewModel : CoreViewModelWithEvent<WorldBookListUiIntent, Wor
     }
 
     @UiIntentObserver(WorldBookListUiIntent.ExportWorldBook::class)
-    private suspend fun onExportWorldBook(intent: WorldBookListUiIntent.ExportWorldBook) {
-        val json = runCatching {
-            withContext(Dispatchers.IO) { mLorebookRepository.exportJson(intent.lorebookId) }
-        }.getOrElse {
-            AppViewEvent.PopupToastMessage(it.message ?: mContext.getString(R.string.export_world_book_failed)).tryEmit()
-            return
-        }
-        
-        runCatching {
-            withContext(Dispatchers.IO) {
-                mContext.contentResolver.openOutputStream(intent.uri)?.use { output ->
-                    output.write(json.toByteArray(Charsets.UTF_8))
-                } ?: error("Cannot open export destination")
+    private fun onExportWorldBook(intent: WorldBookListUiIntent.ExportWorldBook) {
+        val uiState = getOrNull<WorldBookListUiState.Normal>() ?: return
+        if (uiState.loadState != WorldBookListLoadState.None || mTransferJob?.isActive == true) return
+        val token = Any()
+        mTransferToken = token
+        uiState.copy(loadState = WorldBookListLoadState.Loading).setup()
+        mTransferJob = viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    mLorebookRepository.exportToUri(intent.lorebookId, intent.uri)
+                }
+                AppViewEvent.PopupToastMessageByResId(R.string.export_world_book_success).tryEmit()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                AppViewEvent.PopupToastMessageByResId(R.string.export_world_book_failed).tryEmit()
+            } finally {
+                finishTransfer(token)
             }
-        }.onSuccess {
-            AppViewEvent.PopupToastMessageByResId(R.string.export_world_book_success).tryEmit()
-        }.onFailure {
-            AppViewEvent.PopupToastMessage(it.message ?: mContext.getString(R.string.export_world_book_failed)).tryEmit()
+        }
+    }
+
+    /** 仅由当前传输任务清理 Loading；页面结束后不再发布普通状态。 */
+    private fun finishTransfer(token: Any) {
+        if (mTransferToken !== token) return
+        mTransferToken = null
+        mTransferJob = null
+        val current = getOrNull<WorldBookListUiState.Normal>() ?: return
+        if (current.loadState == WorldBookListLoadState.Loading) {
+            current.copy(loadState = WorldBookListLoadState.None).setup()
         }
     }
 }

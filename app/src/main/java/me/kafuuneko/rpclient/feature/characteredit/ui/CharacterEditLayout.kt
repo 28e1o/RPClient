@@ -1,6 +1,5 @@
 package me.kafuuneko.rpclient.feature.characteredit.ui
 
-import android.graphics.BitmapFactory
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -54,15 +53,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import me.kafuuneko.rpclient.libs.room.entity.Lorebook
 import me.kafuuneko.rpclient.R
 import me.kafuuneko.rpclient.feature.characteredit.model.CharacterEditForm
+import me.kafuuneko.rpclient.feature.characteredit.model.CharacterLorebookItem
 import me.kafuuneko.rpclient.feature.characteredit.presentation.CharacterEditDialogState
 import me.kafuuneko.rpclient.feature.characteredit.presentation.CharacterEditLoadState
 import me.kafuuneko.rpclient.feature.characteredit.presentation.CharacterEditMode
@@ -137,7 +136,7 @@ private fun CharacterEditNormal(
             if (state.loadState == CharacterEditLoadState.Loading) {
                 item { LoadingPanel() }
             } else {
-                item { HeaderPanel(state.form, state.avatarFilePath, state.loadState, emit) }
+                item { HeaderPanel(state.form, state.avatarImage, state.loadState, emit) }
                 item { BasicPanel(state.form, emit) }
                 item { TagsPanel(state.form.tags, emit) }
                 item { DefinitionPanel(state.form, emit) }
@@ -167,13 +166,13 @@ private fun LoadingPanel() {
 @Composable
 private fun HeaderPanel(
     form: CharacterEditForm,
-    avatarFilePath: String?,
+    avatarImage: ImageBitmap?,
     loadState: CharacterEditLoadState,
     emit: CharacterEditUiIntent.() -> Unit
 ) {
     Panel {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            AvatarPicker(form, avatarFilePath, emit)
+            AvatarPicker(form, avatarImage, emit)
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -327,7 +326,7 @@ private fun DialoguePanel(
 @Composable
 private fun AdvancedPanel(
     form: CharacterEditForm,
-    availableLorebooks: List<Lorebook>,
+    availableLorebooks: List<CharacterLorebookItem>,
     emit: CharacterEditUiIntent.() -> Unit
 ) {
     var isExtensionsExpanded by rememberSaveable(form.id) { mutableStateOf(false) }
@@ -625,7 +624,7 @@ private fun ListTextField(
 @Composable
 private fun AvatarPicker(
     form: CharacterEditForm,
-    imagePath: String?,
+    avatarImage: ImageBitmap?,
     emit: CharacterEditUiIntent.() -> Unit
 ) {
     Surface(
@@ -639,7 +638,7 @@ private fun AvatarPicker(
             AvatarPreview(
                 avatarText = form.avatarText(),
                 avatarColor = form.avatarColor(),
-                imagePath = imagePath,
+                image = avatarImage,
                 size = 72
             )
             Surface(
@@ -662,7 +661,7 @@ private fun AvatarPicker(
 @Composable
 private fun LorebookSelector(
     selectedId: Long,
-    availableLorebooks: List<Lorebook>,
+    availableLorebooks: List<CharacterLorebookItem>,
     onSelect: (Long) -> Unit,
     onManage: () -> Unit
 ) {
@@ -727,13 +726,10 @@ private fun LorebookSelector(
 private fun AvatarPreview(
     avatarText: String,
     avatarColor: Color,
-    imagePath: String?,
+    image: ImageBitmap?,
     size: Int
 ) {
-    val bitmap = remember(imagePath) {
-        imagePath?.let { BitmapFactory.decodeFile(it) }
-    }
-    if (bitmap == null) {
+    if (image == null) {
         RpAvatar(
             text = avatarText,
             color = avatarColor,
@@ -742,7 +738,7 @@ private fun AvatarPreview(
         )
     } else {
         Image(
-            bitmap = bitmap.asImageBitmap(),
+            bitmap = image,
             contentDescription = null,
             modifier = Modifier
                 .size(size.dp)

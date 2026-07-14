@@ -636,4 +636,25 @@
     <string name="regex_temporary">temporaire</string>
     <string name="prompt_inspector_regex_title">Exécutions Regex (%1$d)</string>
     <string name="prompt_inspector_regex_errors">Erreurs Regex (%1$d)</string>
+    <string name="credential_not_set">Non configuré</string>
+    <string name="credential_keep_existing">Conserver la valeur enregistrée</string>
+    <string name="credential_replace_on_save">La valeur de remplacement confirmée sera utilisée pour le test et l’enregistrement</string>
+    <string name="credential_clear_on_save">La valeur enregistrée sera effacée</string>
+    <string name="credential_set">Définir</string>
+    <string name="credential_replace">Remplacer</string>
+    <string name="credential_clear">Effacer</string>
+    <string name="credential_undo_change">Annuler la modification</string>
+    <string name="api_key_editor_title">Définir la clé API</string>
+    <string name="custom_headers_editor_title">Définir les en-têtes de requête personnalisés</string>
+    <string name="credential_editor_privacy_note">Cette valeur reste uniquement dans l’éditeur actuel jusqu’à sa confirmation. Quittez cette boîte de dialogue pour supprimer la saisie non confirmée.</string>
+    <string name="api_key_required">La clé API ne peut pas être vide. Utilisez « Effacer » pour la supprimer.</string>
+    <string name="custom_headers_json_invalid">Les en-têtes personnalisés doivent former un objet JSON valide.</string>
+    <string name="generation_error_no_provider">Aucun fournisseur de modèle activé n’est disponible.</string>
+    <string name="generation_error_prompt_budget">Le prompt requis (%1$d jetons) dépasse le budget d’entrée disponible (%2$d jetons).</string>
+    <string name="generation_error_unauthorized">Le fournisseur de modèle a rejeté les identifiants.</string>
+    <string name="generation_error_forbidden">Le fournisseur de modèle a refusé cette requête.</string>
+    <string name="generation_error_rate_limited">Le fournisseur de modèle est occupé. Réessayez plus tard.</string>
+    <string name="generation_error_http">Le fournisseur de modèle a renvoyé HTTP %1$d.</string>
+    <string name="generation_error_network">Impossible de joindre le fournisseur de modèle. Vérifiez le réseau et réessayez.</string>
+    <string name="generation_error_empty_response">Le modèle a renvoyé une réponse vide.</string>
 </resources>

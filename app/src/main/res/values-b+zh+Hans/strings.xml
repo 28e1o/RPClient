@@ -369,6 +369,19 @@
     <string name="provider_send_top_p">发送 top_p</string>
     <string name="prompt_post_processing_provider_title">提供商 Prompt 后处理</string>
     <string name="custom_headers_json">自定义请求头 JSON</string>
+    <string name="credential_not_set">未配置</string>
+    <string name="credential_keep_existing">保留已保存的值</string>
+    <string name="credential_replace_on_save">测试和保存时将使用已确认的替换值</string>
+    <string name="credential_clear_on_save">保存时将清除原值</string>
+    <string name="credential_set">设置</string>
+    <string name="credential_replace">替换</string>
+    <string name="credential_clear">清除</string>
+    <string name="credential_undo_change">撤销修改</string>
+    <string name="api_key_editor_title">设置 API Key</string>
+    <string name="custom_headers_editor_title">设置自定义请求头</string>
+    <string name="credential_editor_privacy_note">确认前，此值只存在于当前编辑框中；关闭对话框会丢弃未确认输入。</string>
+    <string name="api_key_required">API Key 不能为空；如需移除，请使用“清除”。</string>
+    <string name="custom_headers_json_invalid">自定义请求头必须是有效的 JSON 对象。</string>
     <string name="save">保存</string>
     <string name="model_test">模型测试</string>
     <string name="send_short_message">发送一条短消息以验证连接</string>
@@ -633,4 +646,12 @@
     <string name="regex_temporary">临时生效</string>
     <string name="prompt_inspector_regex_title">Regex 执行记录（%1$d）</string>
     <string name="prompt_inspector_regex_errors">Regex 错误（%1$d）</string>
+    <string name="generation_error_no_provider">没有可用的已启用模型供应商。</string>
+    <string name="generation_error_prompt_budget">提示词需要 %1$d 个 token，超过可用输入预算 %2$d 个 token。</string>
+    <string name="generation_error_unauthorized">模型供应商拒绝了当前凭据。</string>
+    <string name="generation_error_forbidden">模型供应商拒绝了这次请求。</string>
+    <string name="generation_error_rate_limited">模型供应商当前繁忙，请稍后重试。</string>
+    <string name="generation_error_http">模型供应商返回 HTTP %1$d。</string>
+    <string name="generation_error_network">无法连接模型供应商，请检查网络后重试。</string>
+    <string name="generation_error_empty_response">模型返回了空响应。</string>
 </resources>

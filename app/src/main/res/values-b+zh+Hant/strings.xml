@@ -369,6 +369,19 @@
     <string name="provider_send_top_p">傳送 top_p</string>
     <string name="prompt_post_processing_provider_title">提供者 Prompt 後處理</string>
     <string name="custom_headers_json">自訂請求標頭 JSON</string>
+    <string name="credential_not_set">尚未設定</string>
+    <string name="credential_keep_existing">保留已儲存的值</string>
+    <string name="credential_replace_on_save">測試與儲存時將使用已確認的替換值</string>
+    <string name="credential_clear_on_save">儲存時將清除原值</string>
+    <string name="credential_set">設定</string>
+    <string name="credential_replace">替換</string>
+    <string name="credential_clear">清除</string>
+    <string name="credential_undo_change">復原變更</string>
+    <string name="api_key_editor_title">設定 API Key</string>
+    <string name="custom_headers_editor_title">設定自訂請求標頭</string>
+    <string name="credential_editor_privacy_note">確認前，此值只存在於目前編輯框中；關閉對話框會捨棄未確認輸入。</string>
+    <string name="api_key_required">API Key 不可為空；如需移除，請使用「清除」。</string>
+    <string name="custom_headers_json_invalid">自訂請求標頭必須是有效的 JSON 物件。</string>
     <string name="save">儲存</string>
     <string name="model_test">模型測試</string>
     <string name="send_short_message">傳送一則短訊息以驗證連線</string>
@@ -633,4 +646,12 @@
     <string name="regex_temporary">暫時生效</string>
     <string name="prompt_inspector_regex_title">Regex 執行記錄（%1$d）</string>
     <string name="prompt_inspector_regex_errors">Regex 錯誤（%1$d）</string>
+    <string name="generation_error_no_provider">沒有可用的已啟用模型供應商。</string>
+    <string name="generation_error_prompt_budget">提示詞需要 %1$d 個 token，超過可用輸入預算 %2$d 個 token。</string>
+    <string name="generation_error_unauthorized">模型供應商拒絕了目前的憑據。</string>
+    <string name="generation_error_forbidden">模型供應商拒絕了這次請求。</string>
+    <string name="generation_error_rate_limited">模型供應商目前忙碌，請稍後重試。</string>
+    <string name="generation_error_http">模型供應商回傳 HTTP %1$d。</string>
+    <string name="generation_error_network">無法連線模型供應商，請檢查網路後重試。</string>
+    <string name="generation_error_empty_response">模型回傳了空回應。</string>
 </resources>

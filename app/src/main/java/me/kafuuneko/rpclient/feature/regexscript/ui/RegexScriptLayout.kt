@@ -38,6 +38,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -95,37 +96,43 @@ private fun RegexScriptNormal(
         state.scope != RegexScriptScope.Character || state.selectedCharacterId != null
     Scaffold(
         topBar = {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = { emitIntent(RegexScriptUiIntent.Back) }) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null)
-                }
-                Text(
-                    text = stringResource(R.string.regex_script_title),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f)
-                )
-                IconButton(
-                    onClick = { emitIntent(RegexScriptUiIntent.ImportClick) },
-                    enabled = canManageScripts
+            Column {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Rounded.FileDownload, contentDescription = null)
+                    IconButton(onClick = { emitIntent(RegexScriptUiIntent.Back) }) {
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null)
+                    }
+                    Text(
+                        text = stringResource(R.string.regex_script_title),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(
+                        onClick = { emitIntent(RegexScriptUiIntent.ImportClick) },
+                        enabled = canManageScripts && !state.transferInProgress
+                    ) {
+                        Icon(Icons.Rounded.FileDownload, contentDescription = null)
+                    }
+                    IconButton(
+                        onClick = { emitIntent(RegexScriptUiIntent.ExportClick) },
+                        enabled = !state.transferInProgress
+                    ) {
+                        Icon(Icons.Rounded.FileUpload, contentDescription = null)
+                    }
+                    IconButton(
+                        onClick = { emitIntent(RegexScriptUiIntent.CreateScript) },
+                        enabled = canManageScripts && !state.transferInProgress
+                    ) {
+                        Icon(Icons.Rounded.Add, contentDescription = null)
+                    }
                 }
-                IconButton(onClick = { emitIntent(RegexScriptUiIntent.ExportClick) }) {
-                    Icon(Icons.Rounded.FileUpload, contentDescription = null)
-                }
-                IconButton(
-                    onClick = { emitIntent(RegexScriptUiIntent.CreateScript) },
-                    enabled = canManageScripts
-                ) {
-                    Icon(Icons.Rounded.Add, contentDescription = null)
-                }
+                if (state.transferInProgress) LinearProgressIndicator(Modifier.fillMaxWidth())
             }
         }
     ) { padding ->

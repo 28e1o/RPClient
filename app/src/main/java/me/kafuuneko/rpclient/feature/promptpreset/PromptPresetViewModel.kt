@@ -23,6 +23,7 @@ class PromptPresetViewModel : CoreViewModelWithEvent<PromptPresetUiIntent, Promp
 
     @UiIntentObserver(PromptPresetUiIntent.Back::class)
     private fun onBack() {
+        if (isStateOf<PromptPresetUiState.Finished>()) return
         PromptPresetUiState.finished(uiStateFlow.value).setup()
     }
 

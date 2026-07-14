@@ -66,6 +66,11 @@ android {
     buildFeatures {
         compose = true
     }
+    sourceSets["androidTest"].assets.directories.add("$projectDir/schemas")
+}
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 dependencies {
@@ -98,7 +103,7 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
-    testImplementation(libs.androidx.room.testing)
+    androidTestImplementation(libs.androidx.room.testing)
 
     // okhttp
     implementation(libs.okhttp)

@@ -3,6 +3,7 @@ package me.kafuuneko.rpclient.libs.room.repository
 import kotlinx.coroutines.flow.Flow
 import androidx.room.withTransaction
 import me.kafuuneko.rpclient.libs.llm.LLMClientFactory
+import me.kafuuneko.rpclient.libs.llm.NoEnabledLLMProviderException
 import me.kafuuneko.rpclient.libs.llm.model.LLMGenerationRequest
 import me.kafuuneko.rpclient.libs.llm.model.LLMGenerationResponse
 import me.kafuuneko.rpclient.libs.llm.model.LLMStreamEvent
@@ -152,17 +153,17 @@ class LLMRepository(
             ?: error("LLM provider not found: $providerId")
         return mLLMClientFactory.create(provider.toConfig()).generate(
             request.postProcessPrompt(provider)
-        ).requireNonEmptyContent(provider.name, request.model ?: provider.model)
+        ).requireNonEmptyContent()
     }
 
     /**
      * 使用当前选中的供应商进行一次性生成。
      */
     suspend fun generateWithSelectedProvider(request: LLMGenerationRequest): LLMGenerationResponse {
-        val provider = getSelectedProvider() ?: error("No enabled LLM provider configured")
+        val provider = getSelectedProvider() ?: throw NoEnabledLLMProviderException()
         return mLLMClientFactory.create(provider.toConfig()).generate(
             request.postProcessPrompt(provider)
-        ).requireNonEmptyContent(provider.name, request.model ?: provider.model)
+        ).requireNonEmptyContent()
     }
 
     /**
@@ -171,7 +172,7 @@ class LLMRepository(
     suspend fun generateWithProvider(provider: LLMProvider, request: LLMGenerationRequest): LLMGenerationResponse {
         return mLLMClientFactory.create(provider.toConfig()).generate(
             request.postProcessPrompt(provider)
-        ).requireNonEmptyContent(provider.name, request.model ?: provider.model)
+        ).requireNonEmptyContent()
     }
 
     /**
@@ -182,17 +183,17 @@ class LLMRepository(
             ?: error("LLM provider not found: $providerId")
         return mLLMClientFactory.create(provider.toConfig()).streamGenerate(
             request.postProcessPrompt(provider)
-        ).requireNonEmptyContent(provider.name, request.model ?: provider.model)
+        ).requireNonEmptyContent()
     }
 
     /**
      * 使用当前选中的供应商进行流式生成。
      */
     suspend fun streamGenerateWithSelectedProvider(request: LLMGenerationRequest): Flow<LLMStreamEvent> {
-        val provider = getSelectedProvider() ?: error("No enabled LLM provider configured")
+        val provider = getSelectedProvider() ?: throw NoEnabledLLMProviderException()
         return mLLMClientFactory.create(provider.toConfig()).streamGenerate(
             request.postProcessPrompt(provider)
-        ).requireNonEmptyContent(provider.name, request.model ?: provider.model)
+        ).requireNonEmptyContent()
     }
 
     /**
@@ -201,7 +202,7 @@ class LLMRepository(
     fun streamGenerateWithProvider(provider: LLMProvider, request: LLMGenerationRequest): Flow<LLMStreamEvent> {
         return mLLMClientFactory.create(provider.toConfig()).streamGenerate(
             request.postProcessPrompt(provider)
-        ).requireNonEmptyContent(provider.name, request.model ?: provider.model)
+        ).requireNonEmptyContent()
     }
 
     /**

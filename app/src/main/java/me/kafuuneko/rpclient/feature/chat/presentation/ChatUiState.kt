@@ -18,17 +18,10 @@ sealed class ChatUiState {
         val loadState: ChatLoadState = ChatLoadState.None,
         val session: ChatSessionItem,
         val character: ChatCharacterItem,
-        val messages: List<ChatMessageUiModel>,
-        val lorebookGroups: List<ChatLorebookGroupItem>,
-        val lorebookQuery: String = "",
-        val isSessionLoreExpanded: Boolean = false,
-        val inputDraft: String = "",
-        val generationState: ChatGenerationState = ChatGenerationState.Idle,
+        val conversationState: ChatConversationState,
+        val lorebookState: ChatLorebookState,
         val streamEnabled: Boolean,
         val hasPromptInspection: Boolean = false,
-        val expandedThinkBlockIds: Set<String> = emptySet(),
-        val editingMessageId: String? = null,
-        val editingMessageDraft: String = "",
         val dialogState: ChatDialogState = ChatDialogState.None
     ) : ChatUiState()
 
@@ -41,6 +34,24 @@ sealed class ChatUiState {
         }
     }
 }
+
+/** 单聊消息列表、输入与生成生命周期子状态。 */
+data class ChatConversationState(
+    val messages: List<ChatMessageUiModel>,
+    val inputDraft: String = "",
+    val generationState: ChatGenerationState = ChatGenerationState.Idle,
+    val expandedThinkBlockIds: Set<String> = emptySet(),
+    val editingMessageId: String? = null,
+    val editingMessageDraft: String = ""
+)
+
+/** 单聊世界书选择与展开状态。 */
+data class ChatLorebookState(
+    val groups: List<ChatLorebookGroupItem>,
+    val visibleGroups: List<ChatLorebookGroupItem> = groups,
+    val query: String = "",
+    val isExpanded: Boolean = false
+)
 
 /** 单聊页面当前展示的一级页面。 */
 enum class ChatPage {

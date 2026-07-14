@@ -24,8 +24,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -35,16 +33,16 @@ import me.kafuuneko.rpclient.ui.widgets.AppTopBar
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material3.Icon
-import android.widget.Toast
-import android.content.Context
-import android.content.ClipboardManager
-import android.content.ClipData
+import androidx.compose.ui.tooling.preview.Preview
+import me.kafuuneko.rpclient.ui.theme.AppTheme
 
 /** 关于页 Compose 入口，展示版本与项目联系信息。 */
 @Composable
 fun AboutLayout(
     uiState: AboutUiState,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onCopyDeveloperEmail: () -> Unit,
+    onOpenRepository: () -> Unit
 ) {
     Scaffold(
         modifier = Modifier
@@ -58,6 +56,8 @@ fun AboutLayout(
     ) { paddingValues ->
         AboutViewContent(
             uiState = uiState,
+            onCopyDeveloperEmail = onCopyDeveloperEmail,
+            onOpenRepository = onOpenRepository,
             modifier = Modifier.padding(paddingValues)
         )
     }
@@ -66,13 +66,10 @@ fun AboutLayout(
 @Composable
 private fun AboutViewContent(
     uiState: AboutUiState,
+    onCopyDeveloperEmail: () -> Unit,
+    onOpenRepository: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val appVersionName = LocalContext.current.run {
-        packageManager.getPackageInfo(applicationContext.packageName, 0).versionName
-    } ?: stringResource(R.string.unknown_version)
-    val uriHandler = LocalUriHandler.current
-
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -82,7 +79,6 @@ private fun AboutViewContent(
     ) {
         Spacer(modifier = Modifier.height(16.dp))
 
-        // App Logo Badge
         Image(
             painter = painterResource(R.drawable.app_logo),
             contentDescription = stringResource(R.string.app_name),
@@ -91,7 +87,6 @@ private fun AboutViewContent(
                 .clip(RoundedCornerShape(22.dp))
         )
 
-        // App Information
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -101,7 +96,7 @@ private fun AboutViewContent(
                 style = MaterialTheme.typography.titleLarge
             )
             Text(
-                text = appVersionName,
+                text = uiState.appVersionName,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.58f)
             )
@@ -109,7 +104,6 @@ private fun AboutViewContent(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Detailed info card
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -119,20 +113,13 @@ private fun AboutViewContent(
             ),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
         ) {
-            val context = LocalContext.current
-
             Column(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 AboutInfoRow(
                     label = stringResource(R.string.developer_contact),
-                    modifier = Modifier.clickable {
-                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        val clip = ClipData.newPlainText(context.getString(R.string.developer_contact), uiState.developerEmail)
-                        clipboard.setPrimaryClip(clip)
-                        Toast.makeText(context, R.string.copied_to_clipboard, Toast.LENGTH_SHORT).show()
-                    }
+                    modifier = Modifier.clickable(onClick = onCopyDeveloperEmail)
                 ) {
                     Text(
                         text = uiState.developerEmail,
@@ -142,9 +129,7 @@ private fun AboutViewContent(
                 }
                 AboutInfoRow(
                     label = stringResource(R.string.github_repo_label),
-                    modifier = Modifier.clickable {
-                        uriHandler.openUri(uiState.githubRepoUrl)
-                    }
+                    modifier = Modifier.clickable(onClick = onOpenRepository)
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -165,6 +150,24 @@ private fun AboutViewContent(
                 }
             }
         }
+    }
+}
+
+@Preview(widthDp = 390, heightDp = 844, showBackground = true)
+@Composable
+private fun AboutLayoutPreview() {
+    AppTheme(dynamicColor = false) {
+        AboutLayout(
+            uiState = AboutUiState(
+                appVersionName = "2026.1.2",
+                githubRepoUrl = "https://github.com/KafuuNeko/RPClient",
+                githubRepoName = "KafuuNeko/RPClient",
+                developerEmail = "developer@example.com"
+            ),
+            onBack = {},
+            onCopyDeveloperEmail = {},
+            onOpenRepository = {}
+        )
     }
 }
 

@@ -1,9 +1,15 @@
 package me.kafuuneko.rpclient.feature.chatcreate.model
 
-import me.kafuuneko.rpclient.libs.room.entity.LorebookEntry
-
-/** 新建单聊页面中的世界书条目及所属世界书名称。 */
+/** 新建单聊页可选择的世界书条目快照。 */
 data class ChatCreateLorebookEntryItem(
-    val entry: LorebookEntry,
-    val lorebookName: String
+    val id: Long,
+    val lorebookName: String,
+    val name: String,
+    val content: String,
+    val keywords: List<String>,
+    val secondaryKeywords: List<String>,
+    val category: List<String>,
+    val constant: Boolean,
+    val order: Int,
+    val depth: Int
 )

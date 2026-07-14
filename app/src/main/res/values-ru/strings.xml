@@ -637,4 +637,25 @@
     <string name="regex_temporary">временный</string>
     <string name="prompt_inspector_regex_title">Выполнения Regex (%1$d)</string>
     <string name="prompt_inspector_regex_errors">Ошибки Regex (%1$d)</string>
+    <string name="credential_not_set">Не настроено</string>
+    <string name="credential_keep_existing">Сохранить текущее значение</string>
+    <string name="credential_replace_on_save">Подтверждённая замена будет использована для проверки и сохранения</string>
+    <string name="credential_clear_on_save">Сохранённое значение будет удалено</string>
+    <string name="credential_set">Задать</string>
+    <string name="credential_replace">Заменить</string>
+    <string name="credential_clear">Удалить</string>
+    <string name="credential_undo_change">Отменить изменение</string>
+    <string name="api_key_editor_title">Задать API-ключ</string>
+    <string name="custom_headers_editor_title">Задать пользовательские заголовки запроса</string>
+    <string name="credential_editor_privacy_note">Это значение хранится только в текущем редакторе до подтверждения. Закройте диалог, чтобы удалить неподтверждённый ввод.</string>
+    <string name="api_key_required">API-ключ не может быть пустым. Используйте «Удалить», чтобы убрать его.</string>
+    <string name="custom_headers_json_invalid">Пользовательские заголовки должны быть корректным объектом JSON.</string>
+    <string name="generation_error_no_provider">Нет доступного включённого поставщика модели.</string>
+    <string name="generation_error_prompt_budget">Требуемый промпт (%1$d токенов) превышает доступный бюджет ввода (%2$d токенов).</string>
+    <string name="generation_error_unauthorized">Поставщик модели отклонил учётные данные.</string>
+    <string name="generation_error_forbidden">Поставщик модели отклонил этот запрос.</string>
+    <string name="generation_error_rate_limited">Поставщик модели занят. Повторите попытку позже.</string>
+    <string name="generation_error_http">Поставщик модели вернул HTTP %1$d.</string>
+    <string name="generation_error_network">Не удалось связаться с поставщиком модели. Проверьте сеть и повторите попытку.</string>
+    <string name="generation_error_empty_response">Модель вернула пустой ответ.</string>
 </resources>

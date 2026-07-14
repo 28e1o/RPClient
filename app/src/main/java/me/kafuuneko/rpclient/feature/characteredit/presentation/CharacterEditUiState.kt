@@ -1,7 +1,8 @@
 package me.kafuuneko.rpclient.feature.characteredit.presentation
 
 import me.kafuuneko.rpclient.feature.characteredit.model.CharacterEditForm
-import me.kafuuneko.rpclient.libs.room.entity.Lorebook
+import me.kafuuneko.rpclient.feature.characteredit.model.CharacterLorebookItem
+import androidx.compose.ui.graphics.ImageBitmap
 
 /** 角色创建/编辑页面状态树。 */
 sealed class CharacterEditUiState {
@@ -19,8 +20,8 @@ sealed class CharacterEditUiState {
         val initialForm: CharacterEditForm = form,
         val loadState: CharacterEditLoadState = CharacterEditLoadState.None,
         val dialogState: CharacterEditDialogState = CharacterEditDialogState.None,
-        val avatarFilePath: String? = null,
-        val availableLorebooks: List<Lorebook> = emptyList()
+        val avatarImage: ImageBitmap? = null,
+        val availableLorebooks: List<CharacterLorebookItem> = emptyList()
     ) : CharacterEditUiState()
 
     data class Finished(val previous: CharacterEditUiState) : CharacterEditUiState()

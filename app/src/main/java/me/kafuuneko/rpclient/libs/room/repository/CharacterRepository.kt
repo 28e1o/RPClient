@@ -1,5 +1,6 @@
 package me.kafuuneko.rpclient.libs.room.repository
 
+import androidx.room.withTransaction
 import com.google.gson.Gson
 import me.kafuuneko.rpclient.libs.room.AppDatabase
 import me.kafuuneko.rpclient.libs.room.entity.Character
@@ -8,10 +9,10 @@ import me.kafuuneko.rpclient.utils.toStringList
 
 /** 角色实体读写及标签、开场白序列化的业务仓库。 */
 class CharacterRepository(
-    appDatabase: AppDatabase,
+    private val mAppDatabase: AppDatabase,
     private val mGson: Gson
 ) {
-    private val mCharacterDao = appDatabase.getCharacterDao()
+    private val mCharacterDao = mAppDatabase.getCharacterDao()
 
     /**
      * 获取所有角色。
@@ -55,6 +56,23 @@ class CharacterRepository(
      */
     suspend fun updateCharacter(character: Character) {
         mCharacterDao.update(character)
+    }
+
+    /**
+     * 在事务内重读角色并只修改扩展 JSON，保留同时期提交的其他角色字段。
+     *
+     * @return 更新后的角色；角色已不存在时返回 null。
+     */
+    suspend fun updateCharacterExtensions(
+        id: Long,
+        transform: (String) -> String
+    ): Character? {
+        return mAppDatabase.withTransaction {
+            val current = mCharacterDao.getCharacterById(id) ?: return@withTransaction null
+            val updated = current.copy(extensionsJson = transform(current.extensionsJson))
+            mCharacterDao.update(updated)
+            updated
+        }
     }
 
     /**

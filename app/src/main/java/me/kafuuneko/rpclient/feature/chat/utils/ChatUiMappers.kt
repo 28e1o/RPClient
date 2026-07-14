@@ -7,6 +7,7 @@ import me.kafuuneko.rpclient.feature.chat.model.ChatMessageUiModel
 import me.kafuuneko.rpclient.feature.chat.model.ChatSessionItem
 import me.kafuuneko.rpclient.feature.chat.model.MessageRole
 import me.kafuuneko.rpclient.libs.room.entity.Character
+import androidx.compose.ui.graphics.ImageBitmap
 import me.kafuuneko.rpclient.libs.room.entity.ChatMessage
 import me.kafuuneko.rpclient.libs.room.entity.ChatSession
 import me.kafuuneko.rpclient.libs.room.entity.Lorebook
@@ -43,7 +44,7 @@ fun ChatSession.toChatSessionItem(
 }
 
 /** 将角色实体转换为聊天页展示模型。 */
-fun Character.toChatCharacterItem(avatarFilePath: String? = null): ChatCharacterItem {
+fun Character.toChatCharacterItem(avatarImage: ImageBitmap? = null): ChatCharacterItem {
     return ChatCharacterItem(
         id = id,
         name = name,
@@ -55,7 +56,7 @@ fun Character.toChatCharacterItem(avatarFilePath: String? = null): ChatCharacter
         creatorNotes = creatorNotes,
         avatarText = name.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "?",
         accentColor = DefaultCharacterAccentColor,
-        avatarFilePath = avatarFilePath
+        avatarImage = avatarImage
     )
 }
 

@@ -2,8 +2,10 @@ package me.kafuuneko.rpclient.feature.characteredit
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import androidx.compose.ui.graphics.asImageBitmap
 import me.kafuuneko.rpclient.R
 import me.kafuuneko.rpclient.feature.characteredit.model.CharacterEditForm
+import me.kafuuneko.rpclient.feature.characteredit.model.CharacterLorebookItem
 import me.kafuuneko.rpclient.feature.characteredit.model.hasUnsavedChangesFrom
 import me.kafuuneko.rpclient.feature.characteredit.presentation.CharacterEditDialogState
 import me.kafuuneko.rpclient.feature.characteredit.presentation.CharacterEditLoadState
@@ -50,8 +52,8 @@ class CharacterEditViewModel : CoreViewModelWithEvent<CharacterEditUiIntent, Cha
         CharacterEditUiState.Normal(
             mode = if (character == null) CharacterEditMode.Create else CharacterEditMode.Edit,
             form = form.ensureListInputs(),
-            avatarFilePath = form.resolveAvatarPath(),
-            availableLorebooks = lorebooks,
+            avatarImage = form.resolveAvatarImage(),
+            availableLorebooks = lorebooks.map { CharacterLorebookItem(it.id, it.name) },
             loadState = CharacterEditLoadState.None
         ).setup()
     }
@@ -74,7 +76,7 @@ class CharacterEditViewModel : CoreViewModelWithEvent<CharacterEditUiIntent, Cha
         uiState.copy(
             form = uiState.form.withValidLorebookAssociation(availableIds),
             initialForm = uiState.initialForm.withValidLorebookAssociation(availableIds),
-            availableLorebooks = lorebooks
+            availableLorebooks = lorebooks.map { CharacterLorebookItem(it.id, it.name) }
         ).setup()
     }
 
@@ -130,7 +132,7 @@ class CharacterEditViewModel : CoreViewModelWithEvent<CharacterEditUiIntent, Cha
         val form = latestState.form.copy(avatar = avatarUuid)
         latestState.copy(
             form = form,
-            avatarFilePath = form.resolveAvatarPath(),
+            avatarImage = form.resolveAvatarImage(),
             loadState = CharacterEditLoadState.None
         ).setup()
     }
@@ -352,11 +354,10 @@ class CharacterEditViewModel : CoreViewModelWithEvent<CharacterEditUiIntent, Cha
         return toCharacter()
     }
 
-    private suspend fun CharacterEditForm.resolveAvatarPath(): String? {
-        return avatar.takeIf { it.isNotBlank() }?.let {
-            withContext(Dispatchers.IO) { mFileRepository.getFile(it)?.absolutePath }
+    private suspend fun CharacterEditForm.resolveAvatarImage() =
+        avatar.takeIf { it.isNotBlank() }?.let {
+            withContext(Dispatchers.IO) { mFileRepository.loadBitmap(it)?.asImageBitmap() }
         }
-    }
 
     private suspend fun cleanupPendingAvatar() {
         val uiState = getOrNull<CharacterEditUiState.Normal>() ?: return

@@ -1,12 +1,14 @@
 package me.kafuuneko.rpclient.feature.main.presentation
 
 import me.kafuuneko.rpclient.feature.main.model.MainChatSessionItem
+import me.kafuuneko.rpclient.feature.main.model.MainChatSessionGroup
 import me.kafuuneko.rpclient.feature.main.model.MainGroupChatSessionItem
+import me.kafuuneko.rpclient.feature.main.model.MainProviderItem
 import me.kafuuneko.rpclient.feature.main.model.MainSessionSelection
 import me.kafuuneko.rpclient.libs.prompt.PromptPostProcessingMode
 import me.kafuuneko.rpclient.libs.prompt.SummaryInjectionPosition
 import me.kafuuneko.rpclient.libs.prompt.SummaryInjectionRole
-import me.kafuuneko.rpclient.libs.room.entity.LLMProvider
+import androidx.compose.ui.graphics.ImageBitmap
 
 /** 应用首页状态树，组合最近会话、全局设置和批量操作对话框。 */
 sealed class MainUiState {
@@ -45,7 +47,7 @@ enum class MainPage {
 
 /** 首页会话列表、资源统计和多选状态。 */
 data class MainHomeState(
-    val recentSessions: List<MainChatSessionItem>,
+    val sessionGroups: List<MainChatSessionGroup>,
     val groupChatSessions: List<MainGroupChatSessionItem> = emptyList(),
     val totalCharacters: Int,
     val totalWorldBooks: Int,
@@ -56,11 +58,11 @@ data class MainHomeState(
 /** 全局设置页的可渲染快照，由 ViewModel 从 Kotpref 与 Provider 数据共同构建。 */
 data class MainSettingsState(
     val userName: String,
-    val userAvatar: String,
-    val userAvatarFilePath: String?,
+    val hasUserAvatar: Boolean,
+    val userAvatarImage: ImageBitmap?,
     val userDescription: String,
     val selectedProviderId: String,
-    val providers: List<LLMProvider>,
+    val providers: List<MainProviderItem>,
     val temperature: Float,
     val topP: Float,
     val maxTokens: Int,

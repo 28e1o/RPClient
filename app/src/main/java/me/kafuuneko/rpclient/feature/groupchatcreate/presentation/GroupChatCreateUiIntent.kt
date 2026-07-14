@@ -1,7 +1,7 @@
 package me.kafuuneko.rpclient.feature.groupchatcreate.presentation
 
 import me.kafuuneko.rpclient.feature.groupchatcreate.model.GroupChatGreetingMode
-import me.kafuuneko.rpclient.libs.room.entity.GroupChatSession
+import me.kafuuneko.rpclient.libs.groupchat.model.GroupChatActivationStrategy
 
 /** 新建群聊页面的成员、策略、世界书和提交意图。 */
 sealed class GroupChatCreateUiIntent {
@@ -12,7 +12,7 @@ sealed class GroupChatCreateUiIntent {
     data class ChangeLorebookQuery(val value: String) : GroupChatCreateUiIntent()
     data class ToggleCharacter(val characterId: Long) : GroupChatCreateUiIntent()
     data class SelectStrategy(
-        val strategy: GroupChatSession.ActivationStrategy
+        val strategy: GroupChatActivationStrategy
     ) : GroupChatCreateUiIntent()
     data class ToggleAllowSelfResponses(val enabled: Boolean) : GroupChatCreateUiIntent()
     data class SelectGreetingMode(

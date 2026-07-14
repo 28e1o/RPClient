@@ -60,7 +60,7 @@ class LLMProviderEditFormTest {
             promptPostProcessingMode = PromptPostProcessingMode.SemiStrict
         ).toProviderOrNull() ?: error("Provider should be valid")
 
-        val restored = LLMProviderEditForm.from(provider)
+        val restored = provider.toEditForm()
 
         assertEquals(false, restored.sendTemperature)
         assertEquals(true, restored.sendTopP)

@@ -2,6 +2,7 @@ package me.kafuuneko.rpclient.feature.llmproviderlist
 
 import android.os.Bundle
 import me.kafuuneko.rpclient.feature.llmprovideredit.LLMProviderEditActivity
+import me.kafuuneko.rpclient.feature.llmproviderlist.model.LLMProviderListItem
 import me.kafuuneko.rpclient.feature.llmproviderlist.presentation.LLMProviderListLoadState
 import me.kafuuneko.rpclient.feature.llmproviderlist.presentation.LLMProviderListUiIntent
 import me.kafuuneko.rpclient.feature.llmproviderlist.presentation.LLMProviderListUiState
@@ -36,16 +37,19 @@ class LLMProviderListViewModel : CoreViewModelWithEvent<LLMProviderListUiIntent,
 
     @UiIntentObserver(LLMProviderListUiIntent.Back::class)
     private fun onBack() {
+        if (isStateOf<LLMProviderListUiState.Finished>()) return
         LLMProviderListUiState.finished(uiStateFlow.value).setup()
     }
 
     @UiIntentObserver(LLMProviderListUiIntent.CreateProvider::class)
     private fun onCreateProvider() {
+        if (!isStateOf<LLMProviderListUiState.Normal>()) return
         AppViewEvent.StartActivity(LLMProviderEditActivity::class.java).tryEmit()
     }
 
     @UiIntentObserver(LLMProviderListUiIntent.EditProvider::class)
     private fun onEditProvider(intent: LLMProviderListUiIntent.EditProvider) {
+        if (!isStateOf<LLMProviderListUiState.Normal>()) return
         val providerId = intent.providerId.toLongOrNull() ?: return
         AppViewEvent.StartActivity(
             activity = LLMProviderEditActivity::class.java,
@@ -55,6 +59,7 @@ class LLMProviderListViewModel : CoreViewModelWithEvent<LLMProviderListUiIntent,
 
     @UiIntentObserver(LLMProviderListUiIntent.ToggleProviderEnabled::class)
     private suspend fun onToggleProviderEnabled(intent: LLMProviderListUiIntent.ToggleProviderEnabled) {
+        if (!isStateOf<LLMProviderListUiState.Normal>()) return
         val providerId = intent.providerId.toLongOrNull() ?: return
         mLLMRepository.updateProviderEnabled(providerId, intent.isEnabled)
         refreshProviders()
@@ -65,7 +70,18 @@ class LLMProviderListViewModel : CoreViewModelWithEvent<LLMProviderListUiIntent,
      */
     private suspend fun refreshProviders() {
         val uiState = getOrNull<LLMProviderListUiState.Normal>() ?: return
-        val providers = mLLMRepository.getAllProviders()
+        val providers = mLLMRepository.getAllProviders().map { provider ->
+            LLMProviderListItem(
+                id = provider.id,
+                name = provider.name,
+                providerType = provider.providerType,
+                protocol = provider.protocol,
+                baseUrl = provider.baseUrl,
+                model = provider.model,
+                isEnabled = provider.isEnabled,
+                hasApiKey = provider.apiKey.isNotBlank()
+            )
+        }
         uiState.copy(
             providers = providers,
             loadState = LLMProviderListLoadState.None

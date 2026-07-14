@@ -69,6 +69,14 @@ class CharacterCardRepository(
         )
     }
 
+    /** 将角色卡 JSON 直接写入用户选择的文档 URI。 */
+    suspend fun exportJsonToUri(characterId: Long, uri: Uri) = withContext(Dispatchers.IO) {
+        val json = exportJson(characterId)
+        mContext.contentResolver.openOutputStream(uri)?.use { output ->
+            output.write(json.toByteArray(Charsets.UTF_8))
+        } ?: error("Cannot open character export destination")
+    }
+
     /**
      * 将角色导出为带角色卡元数据的 PNG。
      *

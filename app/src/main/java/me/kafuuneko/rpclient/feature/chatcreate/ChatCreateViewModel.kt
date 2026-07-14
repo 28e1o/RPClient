@@ -6,6 +6,7 @@ import kotlinx.coroutines.withContext
 import me.kafuuneko.rpclient.R
 import me.kafuuneko.rpclient.feature.chat.ChatActivity
 import me.kafuuneko.rpclient.feature.chatcreate.model.ChatCreateForm
+import me.kafuuneko.rpclient.feature.chatcreate.model.ChatCreateCharacterItem
 import me.kafuuneko.rpclient.feature.chatcreate.model.ChatCreateLorebookGroupItem
 import me.kafuuneko.rpclient.feature.chatcreate.model.ChatCreateLorebookEntryItem
 import me.kafuuneko.rpclient.feature.chatcreate.presentation.ChatCreateLoadState
@@ -38,6 +39,7 @@ class ChatCreateViewModel : CoreViewModelWithEvent<ChatCreateUiIntent, ChatCreat
     private val mChatRepository by inject<ChatRepository>()
     private val mLLMRepository by inject<LLMRepository>()
     private val mMacroResolver by inject<PromptMacroResolver>()
+    private var mCharactersById: Map<Long, Character> = emptyMap()
 
     @UiIntentObserver(ChatCreateUiIntent.Init::class)
     private suspend fun onInit() {
@@ -49,7 +51,20 @@ class ChatCreateViewModel : CoreViewModelWithEvent<ChatCreateUiIntent, ChatCreat
             val groups = lorebooks.map { lorebook ->
                 val entries = mLorebookRepository.getEntriesByLorebookId(lorebook.id)
                     .sortedBy { it.order }
-                    .map { entry -> ChatCreateLorebookEntryItem(entry, lorebook.name) }
+                    .map { entry ->
+                        ChatCreateLorebookEntryItem(
+                            id = entry.id,
+                            lorebookName = lorebook.name,
+                            name = entry.name,
+                            content = entry.content,
+                            keywords = entry.getKeywordList(),
+                            secondaryKeywords = entry.getSecondaryKeywordList(),
+                            category = entry.getCategoryList(),
+                            constant = entry.constant,
+                            order = entry.order,
+                            depth = entry.depth
+                        )
+                    }
                 ChatCreateLorebookGroupItem(
                     lorebookId = lorebook.id,
                     lorebookName = lorebook.name,
@@ -59,6 +74,7 @@ class ChatCreateViewModel : CoreViewModelWithEvent<ChatCreateUiIntent, ChatCreat
             }.filter { it.entries.isNotEmpty() }
             characters to groups
         }
+        mCharactersById = data.first.associateBy { it.id }
         val selectedCharacter = data.first.firstOrNull()
         val selectedCharacterFirstMessages = selectedCharacter?.getChatFirstMessageList().orEmpty()
         val selectedLorebookEntryIds = selectedCharacter
@@ -72,21 +88,30 @@ class ChatCreateViewModel : CoreViewModelWithEvent<ChatCreateUiIntent, ChatCreat
                     hasFirstMessage = selectedCharacterFirstMessages.isNotEmpty(),
                     linkedLorebookEntryIds = selectedLorebookEntryIds
                 ),
-            characters = data.first,
+            characters = data.first.map { character ->
+                ChatCreateCharacterItem(
+                    id = character.id,
+                    name = character.name,
+                    description = character.description,
+                    tags = character.getCharacterTagList()
+                )
+            },
             selectedCharacterFirstMessages = selectedCharacterFirstMessages,
-            lorebookGroups = data.second
+            lorebookGroups = data.second,
+            visibleLorebookGroups = data.second
         ).setup()
     }
 
     @UiIntentObserver(ChatCreateUiIntent.Back::class)
     private fun onBack() {
+        if (isStateOf<ChatCreateUiState.Finished>()) return
         ChatCreateUiState.finished(uiStateFlow.value).setup()
     }
 
     @UiIntentObserver(ChatCreateUiIntent.SelectCharacter::class)
     private fun onSelectCharacter(intent: ChatCreateUiIntent.SelectCharacter) {
         val uiState = getOrNull<ChatCreateUiState.Normal>() ?: return
-        val character = uiState.characters.firstOrNull { it.id == intent.characterId } ?: return
+        val character = mCharactersById[intent.characterId] ?: return
         if (uiState.form.selectedCharacterId == character.id) return
         val previousLinkedLorebookEntryIds = uiState.selectedCharacter()
             ?.defaultLorebookEntryIds(uiState.lorebookGroups)
@@ -112,24 +137,29 @@ class ChatCreateViewModel : CoreViewModelWithEvent<ChatCreateUiIntent, ChatCreat
 
     @UiIntentObserver(ChatCreateUiIntent.ChangeTitle::class)
     private fun onChangeTitle(intent: ChatCreateUiIntent.ChangeTitle) {
+        if (!isStateOf<ChatCreateUiState.Normal>()) return
         updateForm { copy(title = intent.value) }
     }
 
     @UiIntentObserver(ChatCreateUiIntent.ChangeUserNote::class)
     private fun onChangeUserNote(intent: ChatCreateUiIntent.ChangeUserNote) {
+        if (!isStateOf<ChatCreateUiState.Normal>()) return
         updateForm { copy(userNote = intent.value) }
     }
 
     @UiIntentObserver(ChatCreateUiIntent.ChangeLorebookQuery::class)
     private fun onChangeLorebookQuery(intent: ChatCreateUiIntent.ChangeLorebookQuery) {
         val uiState = getOrNull<ChatCreateUiState.Normal>() ?: return
-        uiState.copy(lorebookQuery = intent.value).setup()
+        uiState.copy(
+            lorebookQuery = intent.value,
+            visibleLorebookGroups = uiState.lorebookGroups.filterForQuery(intent.value)
+        ).setup()
     }
 
     @UiIntentObserver(ChatCreateUiIntent.ToggleLorebookEntry::class)
     private fun onToggleLorebookEntry(intent: ChatCreateUiIntent.ToggleLorebookEntry) {
         val uiState = getOrNull<ChatCreateUiState.Normal>() ?: return
-        if (uiState.lorebookGroups.none { group -> group.entries.any { it.entry.id == intent.entryId } }) return
+        if (uiState.lorebookGroups.none { group -> group.entries.any { it.id == intent.entryId } }) return
         val selectedIds = uiState.form.selectedLorebookEntryIds
         updateForm {
             copy(
@@ -142,7 +172,7 @@ class ChatCreateViewModel : CoreViewModelWithEvent<ChatCreateUiIntent, ChatCreat
     private fun onToggleLorebook(intent: ChatCreateUiIntent.ToggleLorebook) {
         val uiState = getOrNull<ChatCreateUiState.Normal>() ?: return
         val group = uiState.lorebookGroups.firstOrNull { it.lorebookId == intent.lorebookId } ?: return
-        val entryIds = group.entries.map { it.entry.id }.toSet()
+        val entryIds = group.entries.map { it.id }.toSet()
         if (entryIds.isEmpty()) return
         val selectedIds = uiState.form.selectedLorebookEntryIds
         updateForm {
@@ -224,7 +254,7 @@ class ChatCreateViewModel : CoreViewModelWithEvent<ChatCreateUiIntent, ChatCreat
 
     private fun ChatCreateUiState.Normal.selectedCharacter(): Character? {
         val characterId = form.selectedCharacterId ?: return null
-        return characters.firstOrNull { it.id == characterId }
+        return mCharactersById[characterId]
     }
 
     private fun ChatCreateUiState.Normal.resolveFirstMessageSelection(): FirstMessageSelection? {
@@ -248,8 +278,33 @@ class ChatCreateViewModel : CoreViewModelWithEvent<ChatCreateUiIntent, ChatCreat
         return lorebookGroups
             .firstOrNull { it.lorebookId == characterLorebookId }
             ?.entries
-            ?.mapTo(mutableSetOf()) { it.entry.id }
+            ?.mapTo(mutableSetOf()) { it.id }
             .orEmpty()
+    }
+
+    private fun List<ChatCreateLorebookGroupItem>.filterForQuery(
+        query: String
+    ): List<ChatCreateLorebookGroupItem> {
+        val normalizedQuery = query.trim()
+        if (normalizedQuery.isBlank()) return this
+        return mapNotNull { group ->
+            val groupMatches = group.lorebookName.contains(normalizedQuery, ignoreCase = true)
+            val matchingEntries = group.entries.filter { entry ->
+                entry.lorebookName.contains(normalizedQuery, ignoreCase = true) ||
+                    entry.name.contains(normalizedQuery, ignoreCase = true) ||
+                    entry.content.contains(normalizedQuery, ignoreCase = true) ||
+                    entry.keywords.any { it.contains(normalizedQuery, ignoreCase = true) } ||
+                    entry.secondaryKeywords.any {
+                        it.contains(normalizedQuery, ignoreCase = true)
+                    } ||
+                    entry.category.any { it.contains(normalizedQuery, ignoreCase = true) }
+            }
+            when {
+                groupMatches -> group
+                matchingEntries.isNotEmpty() -> group.copy(entries = matchingEntries)
+                else -> null
+            }
+        }
     }
 
     private data class FirstMessageSelection(val value: String?)

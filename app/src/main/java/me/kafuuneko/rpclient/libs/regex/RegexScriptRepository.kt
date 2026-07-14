@@ -1,9 +1,13 @@
 package me.kafuuneko.rpclient.libs.regex
 
+import android.content.Context
+import android.net.Uri
 import com.google.gson.Gson
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import me.kafuuneko.rpclient.libs.AppModel
 import me.kafuuneko.rpclient.libs.room.entity.Character
 import me.kafuuneko.rpclient.libs.room.repository.CharacterRepository
@@ -15,27 +19,21 @@ import me.kafuuneko.rpclient.libs.room.repository.CharacterRepository
  * 预设和角色卡脚本默认不执行，只有用户授权后才会由 [activeScripts] 返回。
  */
 class RegexScriptRepository(
+    private val mContext: Context,
     private val mGson: Gson,
     private val mCharacterRepository: CharacterRepository,
     private val mCodec: RegexScriptCodec
 ) {
+    /** 所有脚本 read-modify-write 共用同一把锁，避免导入与编辑互相覆盖。 */
+    private val mMutationMutex = Mutex()
+
     /** 读取全局脚本，损坏配置按空列表处理。 */
     fun getGlobalScripts(): List<RegexScript> =
         mCodec.parseList(readSafely { AppModel.globalRegexScriptsJson })
 
-    /** 覆盖保存全局脚本及其当前排序。 */
-    fun saveGlobalScripts(scripts: List<RegexScript>) {
-        AppModel.globalRegexScriptsJson = mCodec.toJson(scripts)
-    }
-
     /** 读取当前 Prompt 预设脚本。 */
     fun getPresetScripts(): List<RegexScript> =
         mCodec.parseList(readSafely { AppModel.presetRegexScriptsJson })
-
-    /** 覆盖保存当前 Prompt 预设脚本。 */
-    fun savePresetScripts(scripts: List<RegexScript>) {
-        AppModel.presetRegexScriptsJson = mCodec.toJson(scripts)
-    }
 
     /** 判断预设脚本是否已由用户显式授权。 */
     fun isPresetAuthorized(): Boolean =
@@ -55,17 +53,45 @@ class RegexScriptRepository(
             .orEmpty()
     }
 
-    /** 将角色脚本写回扩展字段，并保留角色卡中的其他未知扩展。 */
-    suspend fun saveCharacterScripts(characterId: Long, scripts: List<RegexScript>) {
-        val character = mCharacterRepository.getCharacterById(characterId) ?: return
-        val extensions = parseExtensions(character.extensionsJson)
-        extensions.add(
-            "regex_scripts",
-            JsonParser.parseString(mCodec.toJson(scripts)).asJsonArray
-        )
-        mCharacterRepository.updateCharacter(
-            character.copy(extensionsJson = mGson.toJson(extensions))
-        )
+    /** 读取稳定目标的最新脚本。 */
+    suspend fun getScripts(target: RegexScriptTarget): List<RegexScript> {
+        return when (target.scope) {
+            RegexScriptScope.Global -> getGlobalScripts()
+            RegexScriptScope.Preset -> getPresetScripts()
+            RegexScriptScope.Character -> mCharacterRepository
+                .getCharacterById(requireNotNull(target.characterId))
+                ?.let(::getCharacterScripts)
+                .orEmpty()
+        }
+    }
+
+    /**
+     * 对稳定目标执行原子 read-modify-write，并返回提交后的权威列表。
+     *
+     * 文件读取和 JSON 解析应在调用前完成；ID 冲突等依赖最新列表的决策放在 [transform] 中。
+     */
+    suspend fun updateScripts(
+        target: RegexScriptTarget,
+        transform: (List<RegexScript>) -> List<RegexScript>
+    ): List<RegexScript> = mMutationMutex.withLock {
+        when (target.scope) {
+            RegexScriptScope.Global -> {
+                val updated = transform(getGlobalScripts()).toList()
+                AppModel.globalRegexScriptsJson = mCodec.toJson(updated)
+                updated
+            }
+
+            RegexScriptScope.Preset -> {
+                val updated = transform(getPresetScripts()).toList()
+                AppModel.presetRegexScriptsJson = mCodec.toJson(updated)
+                updated
+            }
+
+            RegexScriptScope.Character -> updateCharacterScripts(
+                requireNotNull(target.characterId),
+                transform
+            )
+        }
     }
 
     /** 判断指定角色卡的内嵌脚本是否获准执行。 */
@@ -132,6 +158,22 @@ class RegexScriptRepository(
     /** 导出带缩进的脚本 JSON，供文件分享或迁移。 */
     fun exportScripts(scripts: List<RegexScript>): String = mCodec.toJson(scripts, pretty = true)
 
+    /** 从文档 URI 读取并解析脚本。 */
+    fun importFromUri(uri: Uri): List<RegexScript> {
+        val json = mContext.contentResolver.openInputStream(uri)
+            ?.bufferedReader()
+            ?.use { it.readText() }
+            ?: error("Cannot read regex script file")
+        return importScripts(json)
+    }
+
+    /** 将脚本直接写入用户选择的文档 URI。 */
+    fun exportToUri(uri: Uri, scripts: List<RegexScript>) {
+        mContext.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { writer ->
+            writer.write(exportScripts(scripts))
+        } ?: error("Cannot open regex script export destination")
+    }
+
     /** 容错解析已授权角色 ID 集合。 */
     private fun authorizedCharacterIds(): Set<Long> {
         val json = readSafely { AppModel.authorizedCharacterRegexIdsJson }
@@ -151,4 +193,25 @@ class RegexScriptRepository(
 
     private fun readSafely(block: () -> String): String =
         runCatching(block).getOrDefault("[]")
+
+    private suspend fun updateCharacterScripts(
+        characterId: Long,
+        transform: (List<RegexScript>) -> List<RegexScript>
+    ): List<RegexScript> {
+        var authoritative = emptyList<RegexScript>()
+        val updated = mCharacterRepository.updateCharacterExtensions(characterId) { extensionsJson ->
+            val extensions = parseExtensions(extensionsJson)
+            val current = extensions.get("regex_scripts")
+                ?.takeIf { it.isJsonArray }
+                ?.let { mCodec.parseList(mGson.toJson(it)) }
+                .orEmpty()
+            authoritative = transform(current).toList()
+            extensions.add(
+                "regex_scripts",
+                JsonParser.parseString(mCodec.toJson(authoritative)).asJsonArray
+            )
+            mGson.toJson(extensions)
+        }
+        return if (updated == null) emptyList() else authoritative
+    }
 }

@@ -1,8 +1,8 @@
 package me.kafuuneko.rpclient.feature.chatcreate.presentation
 
 import me.kafuuneko.rpclient.feature.chatcreate.model.ChatCreateForm
+import me.kafuuneko.rpclient.feature.chatcreate.model.ChatCreateCharacterItem
 import me.kafuuneko.rpclient.feature.chatcreate.model.ChatCreateLorebookGroupItem
-import me.kafuuneko.rpclient.libs.room.entity.Character
 
 /** 新建单聊页面状态树。 */
 sealed class ChatCreateUiState {
@@ -12,10 +12,11 @@ sealed class ChatCreateUiState {
     data class Normal(
         val loadState: ChatCreateLoadState = ChatCreateLoadState.None,
         val form: ChatCreateForm = ChatCreateForm(),
-        val characters: List<Character> = emptyList(),
+        val characters: List<ChatCreateCharacterItem> = emptyList(),
         val selectedCharacterFirstMessages: List<String> = emptyList(),
         val lorebookQuery: String = "",
-        val lorebookGroups: List<ChatCreateLorebookGroupItem> = emptyList()
+        val lorebookGroups: List<ChatCreateLorebookGroupItem> = emptyList(),
+        val visibleLorebookGroups: List<ChatCreateLorebookGroupItem> = lorebookGroups
     ) : ChatCreateUiState()
 
     data class Finished(val previous: ChatCreateUiState) : ChatCreateUiState()

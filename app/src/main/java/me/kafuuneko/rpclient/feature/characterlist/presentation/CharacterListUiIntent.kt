@@ -14,6 +14,11 @@ sealed class CharacterListUiIntent {
 
     data class SelectCharacter(val characterId: Long) : CharacterListUiIntent()
 
+    data class VisibleCharactersChanged(
+        val characterIds: Set<Long>,
+        val targetSizePx: Int
+    ) : CharacterListUiIntent()
+
     data object CreateCharacter : CharacterListUiIntent()
 
     data object ImportCharacterClick : CharacterListUiIntent()

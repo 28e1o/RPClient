@@ -243,4 +243,12 @@ class LorebookRepository(
         val codec = LorebookCodec(mGson)
         codec.toLorebookJson(lorebook, entries)
     }
+
+    /** 将世界书 JSON 直接写入用户选择的文档 URI。 */
+    suspend fun exportToUri(lorebookId: Long, uri: Uri) = withContext(Dispatchers.IO) {
+        val json = exportJson(lorebookId)
+        mContext.contentResolver.openOutputStream(uri)?.use { output ->
+            output.write(json.toByteArray(Charsets.UTF_8))
+        } ?: error("Cannot open world book export destination")
+    }
 }

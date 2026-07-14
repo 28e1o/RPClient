@@ -18,11 +18,23 @@ sealed class LLMProviderEditUiIntent {
 
     data class ChangeBaseUrl(val value: String) : LLMProviderEditUiIntent()
 
-    data class ChangeApiKey(val value: String) : LLMProviderEditUiIntent()
+    data object ShowApiKeyEditor : LLMProviderEditUiIntent()
+
+    data class ConfirmApiKeyReplacement(val value: String) : LLMProviderEditUiIntent()
+
+    data object ClearApiKey : LLMProviderEditUiIntent()
+
+    data object KeepExistingApiKey : LLMProviderEditUiIntent()
 
     data class ChangeModel(val value: String) : LLMProviderEditUiIntent()
 
-    data class ChangeCustomHeadersJson(val value: String) : LLMProviderEditUiIntent()
+    data object ShowCustomHeadersEditor : LLMProviderEditUiIntent()
+
+    data class ConfirmCustomHeadersReplacement(val value: String) : LLMProviderEditUiIntent()
+
+    data object ClearCustomHeaders : LLMProviderEditUiIntent()
+
+    data object KeepExistingCustomHeaders : LLMProviderEditUiIntent()
 
     data class ChangeTemperature(val value: String) : LLMProviderEditUiIntent()
 

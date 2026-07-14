@@ -23,6 +23,7 @@ import me.kafuuneko.rpclient.libs.regex.RegexScriptEngine
 import me.kafuuneko.rpclient.libs.regex.RegexScriptRepository
 import me.kafuuneko.rpclient.libs.regex.RegexScriptRuntime
 import me.kafuuneko.rpclient.libs.room.AppDatabase
+import me.kafuuneko.rpclient.libs.room.RequestLogDatabase
 import me.kafuuneko.rpclient.libs.room.repository.CharacterRepository
 import me.kafuuneko.rpclient.libs.room.repository.ChatRepository
 import me.kafuuneko.rpclient.libs.room.repository.FileRepository
@@ -87,8 +88,12 @@ private val appModules = module {
     single {
         Room.databaseBuilder(get(), AppDatabase::class.java, "primary.sqlite")
             .allowMainThreadQueries()
-            .fallbackToDestructiveMigration(true)
             .fallbackToDestructiveMigrationOnDowngrade(true)
+            .build()
+    }
+
+    single {
+        Room.databaseBuilder(get(), RequestLogDatabase::class.java, "request_logs.sqlite")
             .build()
     }
 

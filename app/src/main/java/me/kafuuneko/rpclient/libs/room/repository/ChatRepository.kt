@@ -562,6 +562,85 @@ class ChatRepository(
     }
 
     /**
+     * 为流式新回复创建空占位消息，但不提前推进会话活跃时间。
+     *
+     * 只有实际收到并提交非空正文后，[commitGenerationResult] 才更新会话元数据。
+     */
+    suspend fun createGenerationPlaceholder(
+        sessionId: Long,
+        source: ChatMessage.Source,
+        createTime: Long = System.currentTimeMillis()
+    ): Long {
+        require(source != ChatMessage.Source.Summary) { "Generation output cannot be a summary" }
+        return mChatMessageDao.insertOrReplace(
+            ChatMessage(
+                sessionId = sessionId,
+                createTime = createTime,
+                source = source,
+                content = ""
+            )
+        )
+    }
+
+    /**
+     * 原子提交一次生成结果的正文、摘要失效、活跃时间与世界书运行时状态。
+     *
+     * [messageId] 为空时创建新消息；非空时更新已有消息并使覆盖它的总结失效。
+     * 空正文只会删除本次新建的占位消息，不推进会话元数据。
+     *
+     * @return 已提交消息 id；没有接受正文时返回 null。
+     */
+    suspend fun commitGenerationResult(
+        sessionId: Long,
+        messageId: Long?,
+        source: ChatMessage.Source,
+        content: String,
+        deleteEmptyPlaceholder: Boolean,
+        worldInfoStateJson: String,
+        commitTime: Long = System.currentTimeMillis()
+    ): Long? {
+        require(source != ChatMessage.Source.Summary) { "Generation output cannot be a summary" }
+        return mAppDatabase.withTransaction {
+            if (content.isBlank()) {
+                if (deleteEmptyPlaceholder && messageId != null) {
+                    val placeholder = mChatMessageDao.getMessageById(messageId)
+                    if (placeholder?.sessionId == sessionId && placeholder.content.isBlank()) {
+                        mChatMessageDao.deleteMessageById(messageId)
+                    }
+                }
+                return@withTransaction null
+            }
+
+            val committedMessageId = if (messageId == null) {
+                mChatMessageDao.insertOrReplace(
+                    ChatMessage(
+                        sessionId = sessionId,
+                        createTime = commitTime,
+                        source = source,
+                        content = content
+                    )
+                )
+            } else {
+                val message = requireNotNull(mChatMessageDao.getMessageById(messageId)) {
+                    "Generation target message does not exist"
+                }
+                require(message.sessionId == sessionId && message.source != ChatMessage.Source.Summary) {
+                    "Generation target must be a regular message in the same session"
+                }
+                mChatMessageDao.updateMessageContent(messageId, content)
+                mChatMessageDao.deleteSummariesCoveringMessage(sessionId, messageId)
+                messageId
+            }
+            mChatSessionDao.updateGenerationMetadata(
+                id = sessionId,
+                latestTime = commitTime,
+                worldInfoStateJson = worldInfoStateJson
+            )
+            committedMessageId
+        }
+    }
+
+    /**
      * 保存消息。
      *
      * 当 id 为 0 时创建新消息；否则更新已有消息。

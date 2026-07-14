@@ -55,11 +55,10 @@ import me.kafuuneko.rpclient.R
 import me.kafuuneko.rpclient.feature.chatcreate.model.ChatCreateForm
 import me.kafuuneko.rpclient.feature.chatcreate.model.ChatCreateLorebookEntryItem
 import me.kafuuneko.rpclient.feature.chatcreate.model.ChatCreateLorebookGroupItem
+import me.kafuuneko.rpclient.feature.chatcreate.model.ChatCreateCharacterItem
 import me.kafuuneko.rpclient.feature.chatcreate.presentation.ChatCreateLoadState
 import me.kafuuneko.rpclient.feature.chatcreate.presentation.ChatCreateUiIntent
 import me.kafuuneko.rpclient.feature.chatcreate.presentation.ChatCreateUiState
-import me.kafuuneko.rpclient.libs.room.entity.Character
-import me.kafuuneko.rpclient.libs.room.entity.LorebookEntry
 import me.kafuuneko.rpclient.libs.utils.toggle
 import me.kafuuneko.rpclient.ui.theme.AppTheme
 import me.kafuuneko.rpclient.ui.widgets.AppTopBar
@@ -88,7 +87,7 @@ private fun ChatCreateNormal(
     emit: ChatCreateUiIntent.() -> Unit
 ) {
     var expandedLorebookIds by remember { mutableStateOf(emptySet<Long>()) }
-    val filteredLorebookGroups = state.lorebookGroups.filterForQuery(state.lorebookQuery)
+    val filteredLorebookGroups = state.visibleLorebookGroups
     val isSearchingLorebooks = state.lorebookQuery.isNotBlank()
 
     Column(
@@ -174,7 +173,7 @@ private fun ChatCreateNormal(
                     val selectedCount = state.lorebookGroups
                         .firstOrNull { it.lorebookId == group.lorebookId }
                         ?.entries
-                        ?.count { it.entry.id in state.form.selectedLorebookEntryIds }
+                        ?.count { it.id in state.form.selectedLorebookEntryIds }
                         ?: 0
                     LorebookGroupOption(
                         group = group,
@@ -227,7 +226,7 @@ private fun BasicForm(
 
 @Composable
 private fun CharacterOption(
-    character: Character,
+    character: ChatCreateCharacterItem,
     selected: Boolean,
     onClick: () -> Unit
 ) {
@@ -267,7 +266,7 @@ private fun CharacterOption(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                RpTagRow(character.getCharacterTagList(), maxCount = 4)
+                RpTagRow(character.tags, maxCount = 4)
             }
         }
     }
@@ -365,8 +364,8 @@ private fun LorebookGroupOption(
                 group.entries.forEach { item ->
                     LorebookEntryOption(
                         item = item,
-                        selected = item.entry.id in selectedEntryIds,
-                        onClick = { ChatCreateUiIntent.ToggleLorebookEntry(item.entry.id).emit() }
+                        selected = item.id in selectedEntryIds,
+                        onClick = { ChatCreateUiIntent.ToggleLorebookEntry(item.id).emit() }
                     )
                 }
             }
@@ -404,13 +403,13 @@ private fun LorebookEntryOption(
                 verticalArrangement = Arrangement.spacedBy(5.dp)
             ) {
                 Text(
-                    text = item.entry.name,
+                    text = item.name,
                     style = MaterialTheme.typography.titleSmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = item.entry.content,
+                    text = item.content,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.62f),
                     maxLines = 2,
@@ -419,7 +418,7 @@ private fun LorebookEntryOption(
                 RpTagRow(
                     tags = item.displayTags(
                         constantLabel = stringResource(R.string.entry_constant),
-                        orderDepthLabel = stringResource(R.string.entry_order_depth, item.entry.order, item.entry.depth)
+                        orderDepthLabel = stringResource(R.string.entry_order_depth, item.order, item.depth)
                     )
                 )
             }
@@ -433,7 +432,7 @@ private fun ChatCreateLorebookEntryItem.displayTags(
 ): List<String> {
     return buildList {
         add(lorebookName)
-        if (entry.constant) add(constantLabel)
+        if (constant) add(constantLabel)
         add(orderDepthLabel)
     }
 }
@@ -496,29 +495,6 @@ private fun LorebookSearchField(
     )
 }
 
-private fun List<ChatCreateLorebookGroupItem>.filterForQuery(query: String): List<ChatCreateLorebookGroupItem> {
-    val normalizedQuery = query.trim()
-    if (normalizedQuery.isBlank()) return this
-    return mapNotNull { group ->
-        val groupMatches = group.lorebookName.contains(normalizedQuery, ignoreCase = true)
-        val matchingEntries = group.entries.filter { it.matchesQuery(normalizedQuery) }
-        when {
-            groupMatches -> group
-            matchingEntries.isNotEmpty() -> group.copy(entries = matchingEntries)
-            else -> null
-        }
-    }
-}
-
-private fun ChatCreateLorebookEntryItem.matchesQuery(query: String): Boolean {
-    return lorebookName.contains(query, ignoreCase = true) ||
-        entry.name.contains(query, ignoreCase = true) ||
-        entry.content.contains(query, ignoreCase = true) ||
-        entry.keywords.contains(query, ignoreCase = true) ||
-        entry.secondaryKeywords.contains(query, ignoreCase = true) ||
-        entry.category.contains(query, ignoreCase = true)
-}
-
 @Composable
 private fun EmptyCard(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
@@ -556,18 +532,11 @@ private fun ChatCreateLayoutPreview() {
                     "You arrive at the archive just before midnight."
                 ),
                 characters = listOf(
-                    Character(
+                    ChatCreateCharacterItem(
                         id = 1L,
                         name = "Lyra",
-                        avatar = "",
-                        characterTags = """["Mystery"]""",
+                        tags = listOf("Mystery"),
                         description = "Archivist",
-                        creatorNotes = "",
-                        personality = "",
-                        scenario = "",
-                        firstMessages = "The rain taps gently against the window as Lyra opens the case file.",
-                        examplesOfDialogue = "",
-                        postHistoryInstructions = ""
                     )
                 ),
                 lorebookGroups = listOf(
@@ -577,18 +546,16 @@ private fun ChatCreateLayoutPreview() {
                         entryCount = 1,
                         entries = listOf(
                             ChatCreateLorebookEntryItem(
-                                entry = LorebookEntry(
-                                    id = 1L,
-                                    lorebookId = 1L,
-                                    name = "Old Town",
-                                    keywords = "[]",
-                                    secondaryKeywords = "[]",
-                                    order = 100,
-                                    depth = 0,
-                                    category = "[]",
-                                    content = "Persistent lore content."
-                                ),
-                                lorebookName = "Fog Harbor"
+                                id = 1L,
+                                lorebookName = "Fog Harbor",
+                                name = "Old Town",
+                                keywords = emptyList(),
+                                secondaryKeywords = emptyList(),
+                                order = 100,
+                                depth = 0,
+                                category = emptyList(),
+                                content = "Persistent lore content.",
+                                constant = false
                             )
                         )
                     )

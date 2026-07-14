@@ -1,8 +1,8 @@
 package me.kafuuneko.rpclient.feature.characterlist.presentation
 
-import me.kafuuneko.rpclient.libs.room.entity.Character
+import me.kafuuneko.rpclient.feature.characterlist.model.CharacterListItem
 
-/** 角色列表页状态；Normal 同时保存筛选条件、选择项和头像路径缓存。 */
+/** 角色列表页状态；Normal 只强引用当前可见项的缩略图。 */
 sealed class CharacterListUiState {
     data object None : CharacterListUiState()
 
@@ -10,8 +10,7 @@ sealed class CharacterListUiState {
         val loadState: CharacterListLoadState = CharacterListLoadState.None,
         val searchText: String = "",
         val selectedCharacterId: Long? = null,
-        val characters: List<Character> = emptyList(),
-        val avatarFilePaths: Map<String, String> = emptyMap()
+        val characters: List<CharacterListItem> = emptyList()
     ) : CharacterListUiState()
 
     data class Finished(val previous: CharacterListUiState) : CharacterListUiState()

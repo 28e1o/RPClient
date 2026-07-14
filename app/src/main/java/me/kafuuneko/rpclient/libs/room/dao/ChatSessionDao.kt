@@ -104,6 +104,20 @@ interface ChatSessionDao : MutableDao<ChatSession> {
     @Query("UPDATE chat_sessions SET worldInfoStateJson = :worldInfoStateJson WHERE id = :id")
     suspend fun updateSessionWorldInfoState(id: Long, worldInfoStateJson: String)
 
+    /** 原子生成提交使用的会话元数据更新。 */
+    @Query(
+        """
+        UPDATE chat_sessions
+        SET latestTime = :latestTime, worldInfoStateJson = :worldInfoStateJson
+        WHERE id = :id
+        """
+    )
+    suspend fun updateGenerationMetadata(
+        id: Long,
+        latestTime: Long,
+        worldInfoStateJson: String
+    )
+
     /** 仅暂停或恢复指定会话的自动总结。 */
     @Query("UPDATE chat_sessions SET autoSummaryPaused = :paused WHERE id = :id")
     suspend fun updateAutoSummaryPaused(id: Long, paused: Boolean)

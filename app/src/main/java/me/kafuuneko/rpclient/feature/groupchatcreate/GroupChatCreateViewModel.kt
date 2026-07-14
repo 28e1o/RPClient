@@ -1,12 +1,8 @@
 package me.kafuuneko.rpclient.feature.groupchatcreate
 
-import android.os.Bundle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import me.kafuuneko.rpclient.R
-import me.kafuuneko.rpclient.feature.groupchat.GroupChatActivity
-import me.kafuuneko.rpclient.feature.groupchat.model.GroupChatLorebookEntryItem
-import me.kafuuneko.rpclient.feature.groupchat.model.GroupChatLorebookGroupItem
 import me.kafuuneko.rpclient.feature.groupchatcreate.model.GroupChatCreateCharacterItem
 import me.kafuuneko.rpclient.feature.groupchatcreate.model.GroupChatCreateGreetingState
 import me.kafuuneko.rpclient.feature.groupchatcreate.model.GroupChatGreetingCharacterItem
@@ -21,6 +17,11 @@ import me.kafuuneko.rpclient.libs.core.UiIntentObserver
 import me.kafuuneko.rpclient.libs.groupchat.GroupChatGreetingCandidate
 import me.kafuuneko.rpclient.libs.groupchat.GroupChatGreetingPlanner
 import me.kafuuneko.rpclient.libs.groupchat.GroupChatGreetingSelection
+import me.kafuuneko.rpclient.libs.groupchat.GroupChatNavigation
+import me.kafuuneko.rpclient.libs.groupchat.model.GroupChatActivationStrategy
+import me.kafuuneko.rpclient.libs.groupchat.model.GroupChatLorebookEntryItem
+import me.kafuuneko.rpclient.libs.groupchat.model.GroupChatLorebookGroupItem
+import me.kafuuneko.rpclient.libs.groupchat.model.toEntity
 import me.kafuuneko.rpclient.libs.room.repository.CharacterRepository
 import me.kafuuneko.rpclient.libs.room.repository.GroupChatRepository
 import me.kafuuneko.rpclient.libs.room.repository.LorebookRepository
@@ -85,12 +86,14 @@ class GroupChatCreateViewModel :
         GroupChatCreateUiState.Normal(
             characters = data.first,
             visibleCharacters = data.first,
-            lorebookGroups = data.second
+            lorebookGroups = data.second,
+            visibleLorebookGroups = data.second
         ).setup()
     }
 
     @UiIntentObserver(GroupChatCreateUiIntent.Back::class)
     private fun onBack() {
+        if (isStateOf<GroupChatCreateUiState.Finished>()) return
         GroupChatCreateUiState.finished(uiStateFlow.value).setup()
     }
 
@@ -117,7 +120,10 @@ class GroupChatCreateViewModel :
     @UiIntentObserver(GroupChatCreateUiIntent.ChangeLorebookQuery::class)
     private fun onChangeLorebookQuery(intent: GroupChatCreateUiIntent.ChangeLorebookQuery) {
         val uiState = getOrNull<GroupChatCreateUiState.Normal>() ?: return
-        uiState.copy(lorebookQuery = intent.value).setup()
+        uiState.copy(
+            lorebookQuery = intent.value,
+            visibleLorebookGroups = uiState.lorebookGroups.filterForQuery(intent.value)
+        ).setup()
     }
 
     @UiIntentObserver(GroupChatCreateUiIntent.ToggleCharacter::class)
@@ -138,11 +144,14 @@ class GroupChatCreateViewModel :
                     ?.mapTo(mutableSetOf()) { it.id }
             }
             .orEmpty()
+        val selectedEntryIds = uiState.selectedLorebookEntryIds + defaultEntryIds
+        val lorebookGroups = uiState.lorebookGroups.withEnabledIds(selectedEntryIds)
         uiState.copy(
             characters = characters,
             visibleCharacters = characters.visibleFor(uiState.searchQuery),
-            selectedLorebookEntryIds =
-                uiState.selectedLorebookEntryIds + defaultEntryIds,
+            selectedLorebookEntryIds = selectedEntryIds,
+            lorebookGroups = lorebookGroups,
+            visibleLorebookGroups = lorebookGroups.filterForQuery(uiState.lorebookQuery),
             greetingState = uiState.greetingState.reconcile(characters)
         ).setup()
     }
@@ -219,9 +228,12 @@ class GroupChatCreateViewModel :
             ?.mapTo(mutableSetOf()) { it.id }
             .orEmpty()
         if (entryIds.isEmpty()) return
+        val selectedIds = uiState.selectedLorebookEntryIds.toggleAll(entryIds)
+        val groups = uiState.lorebookGroups.withEnabledIds(selectedIds)
         uiState.copy(
-            selectedLorebookEntryIds =
-                uiState.selectedLorebookEntryIds.toggleAll(entryIds)
+            selectedLorebookEntryIds = selectedIds,
+            lorebookGroups = groups,
+            visibleLorebookGroups = groups.filterForQuery(uiState.lorebookQuery)
         ).setup()
     }
 
@@ -235,9 +247,12 @@ class GroupChatCreateViewModel :
                 group.entries.any { it.id == intent.entryId }
             }
         ) return
+        val selectedIds = uiState.selectedLorebookEntryIds.toggle(intent.entryId)
+        val groups = uiState.lorebookGroups.withEnabledIds(selectedIds)
         uiState.copy(
-            selectedLorebookEntryIds =
-                uiState.selectedLorebookEntryIds.toggle(intent.entryId)
+            selectedLorebookEntryIds = selectedIds,
+            lorebookGroups = groups,
+            visibleLorebookGroups = groups.filterForQuery(uiState.lorebookQuery)
         ).setup()
     }
 
@@ -280,17 +295,14 @@ class GroupChatCreateViewModel :
                 userDescription = AppModel.userDescription.trim(),
                 characterIds = characterIds,
                 lorebookEntryIds = uiState.selectedLorebookEntryIds.sorted(),
-                activationStrategy = uiState.activationStrategy,
+                activationStrategy = uiState.activationStrategy.toEntity(),
                 allowSelfResponses = uiState.allowSelfResponses,
                 openingMessages = openingMessages,
                 createTime = createTime
             )
         }
-        AppViewEvent.StartActivity(
-            activity = GroupChatActivity::class.java,
-            extras = Bundle().apply {
-                putString(GroupChatActivity.EXTRA_SESSION_ID, sessionId.toString())
-            }
+        AppViewEvent.StartActivityByIntent(
+            GroupChatNavigation.createIntent(sessionId)
         ).emitAndAwait()
         GroupChatCreateUiState.finished(uiStateFlow.value).setup()
     }
@@ -303,6 +315,34 @@ class GroupChatCreateViewModel :
             normalized.isBlank() ||
                 it.name.contains(normalized, ignoreCase = true) ||
                 it.description.contains(normalized, ignoreCase = true)
+        }
+    }
+
+    private fun List<GroupChatLorebookGroupItem>.withEnabledIds(
+        selectedIds: Set<Long>
+    ): List<GroupChatLorebookGroupItem> = map { group ->
+        group.copy(entries = group.entries.map { it.copy(enabled = it.id in selectedIds) })
+    }
+
+    private fun List<GroupChatLorebookGroupItem>.filterForQuery(
+        query: String
+    ): List<GroupChatLorebookGroupItem> {
+        val normalized = query.trim()
+        if (normalized.isBlank()) return this
+        return mapNotNull { group ->
+            val groupMatches = group.lorebookName.contains(normalized, ignoreCase = true)
+            val matchingEntries = group.entries.filter { entry ->
+                entry.lorebookName.contains(normalized, ignoreCase = true) ||
+                    entry.name.contains(normalized, ignoreCase = true) ||
+                    entry.content.contains(normalized, ignoreCase = true) ||
+                    entry.keywords.any { it.contains(normalized, ignoreCase = true) } ||
+                    entry.secondaryKeywords.any { it.contains(normalized, ignoreCase = true) }
+            }
+            when {
+                groupMatches -> group
+                matchingEntries.isNotEmpty() -> group.copy(entries = matchingEntries)
+                else -> null
+            }
         }
     }
 

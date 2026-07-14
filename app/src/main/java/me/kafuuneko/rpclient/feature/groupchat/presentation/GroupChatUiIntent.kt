@@ -1,5 +1,8 @@
 package me.kafuuneko.rpclient.feature.groupchat.presentation
 
+import me.kafuuneko.rpclient.libs.groupchat.model.GroupChatActivationStrategy
+import me.kafuuneko.rpclient.libs.groupchat.model.GroupChatCharacterCardMode
+
 /** 群聊页面可接收的全部用户意图和生命周期事件。 */
 sealed class GroupChatUiIntent {
     data class Init(val sessionId: String?) : GroupChatUiIntent()
@@ -25,10 +28,10 @@ sealed class GroupChatUiIntent {
     data class ChangeNewGroupChatPrompt(val value: String) : GroupChatUiIntent()
     data object SaveSettings : GroupChatUiIntent()
     data class SelectActivationStrategy(
-        val strategy: me.kafuuneko.rpclient.libs.room.entity.GroupChatSession.ActivationStrategy
+        val strategy: GroupChatActivationStrategy
     ) : GroupChatUiIntent()
     data class SelectCharacterCardMode(
-        val mode: me.kafuuneko.rpclient.libs.room.entity.GroupChatSession.CharacterCardMode
+        val mode: GroupChatCharacterCardMode
     ) : GroupChatUiIntent()
     data class ToggleIncludeMutedCards(val enabled: Boolean) : GroupChatUiIntent()
     data class ToggleAutoMode(val enabled: Boolean) : GroupChatUiIntent()
@@ -46,7 +49,8 @@ sealed class GroupChatUiIntent {
     data class ChangeEditingMessageDraft(val value: String) : GroupChatUiIntent()
     data object SaveEditingMessage : GroupChatUiIntent()
     data object CancelEditingMessage : GroupChatUiIntent()
-    data class DeleteMessage(val messageId: Long) : GroupChatUiIntent()
+    data class DeleteMessageClick(val messageId: Long) : GroupChatUiIntent()
+    data object ConfirmDeleteMessage : GroupChatUiIntent()
     data class RegenerateMessage(val messageId: Long) : GroupChatUiIntent()
     data object ContinueLast : GroupChatUiIntent()
     data object DeleteSessionClick : GroupChatUiIntent()

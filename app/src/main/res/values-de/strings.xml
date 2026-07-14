@@ -636,4 +636,25 @@
     <string name="regex_temporary">temporär</string>
     <string name="prompt_inspector_regex_title">Regex-Ausführungen (%1$d)</string>
     <string name="prompt_inspector_regex_errors">Regex-Fehler (%1$d)</string>
+    <string name="credential_not_set">Nicht konfiguriert</string>
+    <string name="credential_keep_existing">Gespeicherten Wert beibehalten</string>
+    <string name="credential_replace_on_save">Eine bestätigte Ersetzung wird zum Testen und Speichern verwendet</string>
+    <string name="credential_clear_on_save">Der gespeicherte Wert wird gelöscht</string>
+    <string name="credential_set">Festlegen</string>
+    <string name="credential_replace">Ersetzen</string>
+    <string name="credential_clear">Löschen</string>
+    <string name="credential_undo_change">Änderung rückgängig machen</string>
+    <string name="api_key_editor_title">API-Schlüssel festlegen</string>
+    <string name="custom_headers_editor_title">Benutzerdefinierte Anfrage-Header festlegen</string>
+    <string name="credential_editor_privacy_note">Dieser Wert bleibt nur bis zur Bestätigung im aktuellen Editor. Beim Verlassen dieses Dialogs wird die unbestätigte Eingabe verworfen.</string>
+    <string name="api_key_required">Der API-Schlüssel darf nicht leer sein. Verwende „Löschen“, um ihn zu entfernen.</string>
+    <string name="custom_headers_json_invalid">Benutzerdefinierte Header müssen ein gültiges JSON-Objekt sein.</string>
+    <string name="generation_error_no_provider">Es ist kein aktivierter Modellanbieter verfügbar.</string>
+    <string name="generation_error_prompt_budget">Der erforderliche Prompt (%1$d Token) überschreitet das verfügbare Eingabebudget (%2$d Token).</string>
+    <string name="generation_error_unauthorized">Der Modellanbieter hat die Anmeldedaten abgelehnt.</string>
+    <string name="generation_error_forbidden">Der Modellanbieter hat diese Anfrage abgelehnt.</string>
+    <string name="generation_error_rate_limited">Der Modellanbieter ist ausgelastet. Versuche es später erneut.</string>
+    <string name="generation_error_http">Der Modellanbieter hat HTTP %1$d zurückgegeben.</string>
+    <string name="generation_error_network">Der Modellanbieter ist nicht erreichbar. Prüfe das Netzwerk und versuche es erneut.</string>
+    <string name="generation_error_empty_response">Das Modell hat eine leere Antwort zurückgegeben.</string>
 </resources>

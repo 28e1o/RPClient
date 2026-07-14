@@ -3,17 +3,23 @@ package me.kafuuneko.rpclient.feature.chat
 import android.content.Context
 import android.os.Bundle
 import androidx.lifecycle.viewModelScope
+import androidx.compose.ui.graphics.asImageBitmap
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.kafuuneko.rpclient.R
+import me.kafuuneko.rpclient.feature.toGenerationFailureMessage
 import me.kafuuneko.rpclient.feature.chat.model.ChatGenerationState
+import me.kafuuneko.rpclient.feature.chat.model.ChatLorebookGroupItem
 import me.kafuuneko.rpclient.feature.chat.presentation.ChatDialogState
+import me.kafuuneko.rpclient.feature.chat.presentation.ChatConversationState
+import me.kafuuneko.rpclient.feature.chat.presentation.ChatLorebookState
 import me.kafuuneko.rpclient.feature.chat.presentation.ChatLoadState
 import me.kafuuneko.rpclient.feature.chat.presentation.ChatPage
 import me.kafuuneko.rpclient.feature.chat.presentation.ChatUiIntent
@@ -63,7 +69,7 @@ import org.koin.core.component.inject
  * 单角色聊天页的状态持有者。
  *
  * 负责会话加载、消息持久化、Prompt 构建、流式生成、Regex 处理和自动总结。
- * 生成期间的可变成员只用于跨流式回调保存一次请求的上下文，结束或取消时必须统一清理。
+ * 流式生成由生成协程独占收尾；停止和返回只取消并等待该协程完成原子提交。
  */
 class ChatViewModel : CoreViewModelWithEvent<ChatUiIntent, ChatUiState>(
     ChatUiState.None
@@ -85,15 +91,8 @@ class ChatViewModel : CoreViewModelWithEvent<ChatUiIntent, ChatUiState>(
     private var mGenerationJob: Job? = null
     /** 后台自动总结任务，与正文生成分开取消和收尾。 */
     private var mSummaryJob: Job? = null
-    /** 流式占位消息及已接收内容，用于增量落库和异常恢复。 */
-    private var mStreamingMessageId: Long? = null
-    private var mStreamingContent: String = ""
-    private var mStreamingCreatedMessage: Boolean = false
-    /** 当前生成模式的输出目标，例如新消息、续写或重新生成。 */
-    private var mStreamingOutput: GenerationOutput? = null
-    /** 本次生成固定使用的脚本与宏快照，避免流中途配置变化导致结果不一致。 */
-    private var mStreamingRegexScripts: List<ScopedRegexScript> = emptyList()
-    private var mStreamingRegexMacros: Map<String, String> = emptyMap()
+    /** 仅暴露当前不可变流式快照供 UI 刷新读取；生成协程是唯一写入者和收尾所有者。 */
+    private var mActiveStreamingGeneration: ActiveStreamingGeneration? = null
     /** 最近一次实际发送请求的检查报告，供调试对话框读取。 */
     private var mLastPromptInspection: PromptInspection? = null
 
@@ -126,14 +125,14 @@ class ChatViewModel : CoreViewModelWithEvent<ChatUiIntent, ChatUiState>(
         val refreshed = withContext(Dispatchers.IO) {
             loadNormalState(
                 sessionId = sessionId,
-                inputDraft = uiState.inputDraft,
+                inputDraft = uiState.conversationState.inputDraft,
                 page = uiState.page,
-                isExpanded = uiState.isSessionLoreExpanded,
+                isExpanded = uiState.lorebookState.isExpanded,
                 loadState = uiState.loadState,
-                generationState = uiState.generationState,
-                expandedThinkBlockIds = uiState.expandedThinkBlockIds,
-                editingMessageId = uiState.editingMessageId,
-                editingMessageDraft = uiState.editingMessageDraft,
+                generationState = uiState.conversationState.generationState,
+                expandedThinkBlockIds = uiState.conversationState.expandedThinkBlockIds,
+                editingMessageId = uiState.conversationState.editingMessageId,
+                editingMessageDraft = uiState.conversationState.editingMessageDraft,
                 dialogState = uiState.dialogState
             )
         }
@@ -146,33 +145,40 @@ class ChatViewModel : CoreViewModelWithEvent<ChatUiIntent, ChatUiState>(
     }
 
     @UiIntentObserver(ChatUiIntent.Back::class)
-    private fun onBack() {
+    private suspend fun onBack() {
         val uiState = getOrNull<ChatUiState.Normal>()
         if (uiState?.page == ChatPage.Settings) {
             uiState.copy(page = ChatPage.Conversation).setup()
             return
         }
-        mGenerationJob?.cancel()
+        cancelActiveGeneration()
         ChatUiState.finished(uiStateFlow.value).setup()
     }
 
     @UiIntentObserver(ChatUiIntent.ChangeInputDraft::class)
     private suspend fun onChangeInputDraft(intent: ChatUiIntent.ChangeInputDraft) {
         val uiState = getOrNull<ChatUiState.Normal>() ?: return
-        uiState.copy(inputDraft = intent.value).setup()
+        uiState.copy(
+            conversationState = uiState.conversationState.copy(inputDraft = intent.value)
+        ).setup()
     }
 
     @UiIntentObserver(ChatUiIntent.ChangeLorebookQuery::class)
     private fun onChangeLorebookQuery(intent: ChatUiIntent.ChangeLorebookQuery) {
         val uiState = getOrNull<ChatUiState.Normal>() ?: return
-        uiState.copy(lorebookQuery = intent.value).setup()
+        uiState.copy(
+            lorebookState = uiState.lorebookState.copy(
+                query = intent.value,
+                visibleGroups = uiState.lorebookState.groups.filterForQuery(intent.value)
+            )
+        ).setup()
     }
 
     @UiIntentObserver(ChatUiIntent.SendMessage::class)
     private suspend fun onSendMessage() {
         val uiState = getOrNull<ChatUiState.Normal>() ?: return
         val sessionId = mSessionId ?: return
-        val rawInput = uiState.inputDraft.trim()
+        val rawInput = uiState.conversationState.inputDraft.trim()
             .ifBlank { AppModel.replaceEmptyMessagePrompt.trim() }
         if (rawInput.isBlank()) {
             continueLastAssistantMessage(sessionId)
@@ -195,7 +201,7 @@ class ChatViewModel : CoreViewModelWithEvent<ChatUiIntent, ChatUiState>(
                 refreshUiState(
                     sessionId = sessionId,
                     inputDraft = "",
-                    isExpanded = uiState.isSessionLoreExpanded,
+                    isExpanded = uiState.lorebookState.isExpanded,
                     generationState = ChatGenerationState.Requesting
                 )
                 val built = withContext(Dispatchers.IO) { buildGenerationRequest(sessionId) }
@@ -217,73 +223,61 @@ class ChatViewModel : CoreViewModelWithEvent<ChatUiIntent, ChatUiState>(
                 }
                 maybeAutoSummarize(sessionId)
             }.onFailure { throwable ->
-                if (throwable is CancellationException) return@onFailure
+                val message = throwable.toGenerationFailureMessage(
+                    mContext,
+                    R.string.generation_failed
+                ) ?: return@onFailure
                 refreshUiState(
                     sessionId = sessionId,
                     inputDraft = "",
-                    isExpanded = uiState.isSessionLoreExpanded,
-                    generationState = ChatGenerationState.Failed(throwable.message ?: mContext.getString(R.string.generation_failed))
+                    isExpanded = uiState.lorebookState.isExpanded,
+                    generationState = ChatGenerationState.Failed(message)
                 )
-                AppViewEvent.PopupToastMessage(throwable.message ?: mContext.getString(R.string.generation_failed)).tryEmit()
+                AppViewEvent.PopupToastMessage(message).tryEmit()
             }
         }
     }
 
     @UiIntentObserver(ChatUiIntent.StopGeneration::class)
     private suspend fun onStopGeneration() {
+        if (!isStateOf<ChatUiState.Normal>()) return
         val sessionId = mSessionId ?: return
-        val job = mGenerationJob ?: return
-        if (!job.isActive) return
-        job.cancel()
-        val messageId = mStreamingMessageId
-        val content = mStreamingContent
-        val output = mStreamingOutput
-        // 用户停止生成时，已经收到的流式片段仍然是有效剧情内容，需要写回当前 assistant 消息。
-        withContext(Dispatchers.IO) {
-            val processedContent = content.takeIf { it.isNotBlank() }
-                ?.let { applyGeneratedRegex(sessionId, it, output) }
-                .orEmpty()
-            if (messageId != null && processedContent.isNotBlank()) {
-                mChatRepository.updateMessageContent(messageId, processedContent)
-            } else if (messageId != null && mStreamingCreatedMessage) {
-                mChatRepository.deleteMessage(messageId)
-            } else if (messageId == null && processedContent.isNotBlank()) {
-                mChatRepository.createMessage(
-                    sessionId,
-                    ChatMessage.Source.Char,
-                    processedContent
-                )
-            }
-        }
-        mStreamingMessageId = null
-        mStreamingContent = ""
-        mStreamingCreatedMessage = false
-        mStreamingOutput = null
-        mStreamingRegexScripts = emptyList()
-        mStreamingRegexMacros = emptyMap()
+        if (!cancelActiveGeneration()) return
         refreshUiState(sessionId = sessionId, generationState = ChatGenerationState.Idle)
+    }
+
+    /** 取消当前生成并等待生成协程在 NonCancellable 收尾中完成唯一一次提交。 */
+    private suspend fun cancelActiveGeneration(): Boolean {
+        val job = mGenerationJob ?: return false
+        if (!job.isActive) return false
+        job.cancelAndJoin()
+        return true
     }
 
     @UiIntentObserver(ChatUiIntent.RegenerateLast::class)
     private suspend fun onRegenerateLast() {
+        if (!isStateOf<ChatUiState.Normal>()) return
         val sessionId = mSessionId ?: return
         regenerateLastAssistantMessage(sessionId)
     }
 
     @UiIntentObserver(ChatUiIntent.ContinueLast::class)
     private suspend fun onContinueLast() {
+        if (!isStateOf<ChatUiState.Normal>()) return
         val sessionId = mSessionId ?: return
         continueLastAssistantMessage(sessionId)
     }
 
     @UiIntentObserver(ChatUiIntent.ImpersonateUser::class)
     private suspend fun onImpersonateUser() {
+        if (!isStateOf<ChatUiState.Normal>()) return
         val sessionId = mSessionId ?: return
         generateUserImpersonation(sessionId)
     }
 
     @UiIntentObserver(ChatUiIntent.RegenerateFromMessage::class)
     private suspend fun onRegenerateFromMessage(intent: ChatUiIntent.RegenerateFromMessage) {
+        if (!isStateOf<ChatUiState.Normal>()) return
         val sessionId = mSessionId ?: return
         val messageId = intent.messageId.toLongOrNull() ?: return
         val latestAssistantMessage = withContext(Dispatchers.IO) {
@@ -327,21 +321,28 @@ class ChatViewModel : CoreViewModelWithEvent<ChatUiIntent, ChatUiState>(
     @UiIntentObserver(ChatUiIntent.OpenSessionLore::class)
     private fun onOpenSessionLore() {
         val uiState = getOrNull<ChatUiState.Normal>() ?: return
-        uiState.copy(isSessionLoreExpanded = !uiState.isSessionLoreExpanded).setup()
+        uiState.copy(
+            lorebookState = uiState.lorebookState.copy(
+                isExpanded = !uiState.lorebookState.isExpanded
+            )
+        ).setup()
     }
 
     @UiIntentObserver(ChatUiIntent.ToggleSessionLoreEntry::class)
     private suspend fun onToggleSessionLoreEntry(intent: ChatUiIntent.ToggleSessionLoreEntry) {
         val uiState = getOrNull<ChatUiState.Normal>() ?: return
         val sessionId = mSessionId ?: return
-        if (uiState.lorebookGroups.none { group -> group.entries.any { it.id == intent.entryId } }) return
+        if (uiState.lorebookState.groups.none { group ->
+                group.entries.any { it.id == intent.entryId }
+            }
+        ) return
         val enabledIds = uiState.session.enabledLorebookEntryIds.toggle(intent.entryId)
         saveSessionLorebookEntryIds(sessionId, enabledIds)
         refreshUiState(
             sessionId = sessionId,
-            inputDraft = uiState.inputDraft,
-            isExpanded = uiState.isSessionLoreExpanded,
-            generationState = uiState.generationState
+            inputDraft = uiState.conversationState.inputDraft,
+            isExpanded = uiState.lorebookState.isExpanded,
+            generationState = uiState.conversationState.generationState
         )
     }
 
@@ -349,16 +350,17 @@ class ChatViewModel : CoreViewModelWithEvent<ChatUiIntent, ChatUiState>(
     private suspend fun onToggleSessionLorebook(intent: ChatUiIntent.ToggleSessionLorebook) {
         val uiState = getOrNull<ChatUiState.Normal>() ?: return
         val sessionId = mSessionId ?: return
-        val group = uiState.lorebookGroups.firstOrNull { it.lorebookId == intent.lorebookId } ?: return
+        val group = uiState.lorebookState.groups
+            .firstOrNull { it.lorebookId == intent.lorebookId } ?: return
         val entryIds = group.entries.map { it.id }.toSet()
         if (entryIds.isEmpty()) return
         val enabledIds = uiState.session.enabledLorebookEntryIds.toggleAll(entryIds)
         saveSessionLorebookEntryIds(sessionId, enabledIds)
         refreshUiState(
             sessionId = sessionId,
-            inputDraft = uiState.inputDraft,
-            isExpanded = uiState.isSessionLoreExpanded,
-            generationState = uiState.generationState
+            inputDraft = uiState.conversationState.inputDraft,
+            isExpanded = uiState.lorebookState.isExpanded,
+            generationState = uiState.conversationState.generationState
         )
     }
 
@@ -387,6 +389,7 @@ class ChatViewModel : CoreViewModelWithEvent<ChatUiIntent, ChatUiState>(
 
     @UiIntentObserver(ChatUiIntent.SummarizeNow::class)
     private suspend fun onSummarizeNow() {
+        if (!isStateOf<ChatUiState.Normal>()) return
         val sessionId = mSessionId ?: return
         if (mGenerationJob?.isActive == true) {
             AppViewEvent.PopupToastMessageByResId(R.string.stop_generation_before_summarizing).tryEmit()
@@ -397,6 +400,7 @@ class ChatViewModel : CoreViewModelWithEvent<ChatUiIntent, ChatUiState>(
 
     @UiIntentObserver(ChatUiIntent.RestorePreviousSummary::class)
     private suspend fun onRestorePreviousSummary() {
+        if (!isStateOf<ChatUiState.Normal>()) return
         val sessionId = mSessionId ?: return
         if (mGenerationJob?.isActive == true || mSummaryJob?.isActive == true) return
         val restored = withContext(Dispatchers.IO) {
@@ -412,6 +416,7 @@ class ChatViewModel : CoreViewModelWithEvent<ChatUiIntent, ChatUiState>(
     private suspend fun onToggleAutoSummaryPaused(
         intent: ChatUiIntent.ToggleAutoSummaryPaused
     ) {
+        if (!isStateOf<ChatUiState.Normal>()) return
         val sessionId = mSessionId ?: return
         withContext(Dispatchers.IO) {
             mChatRepository.updateAutoSummaryPaused(sessionId, intent.paused)
@@ -421,6 +426,7 @@ class ChatViewModel : CoreViewModelWithEvent<ChatUiIntent, ChatUiState>(
 
     @UiIntentObserver(ChatUiIntent.CancelSummary::class)
     private fun onCancelSummary() {
+        if (!isStateOf<ChatUiState.Normal>()) return
         mSummaryJob?.cancel()
     }
 
@@ -494,6 +500,7 @@ class ChatViewModel : CoreViewModelWithEvent<ChatUiIntent, ChatUiState>(
 
     @UiIntentObserver(ChatUiIntent.SaveTitle::class)
     private suspend fun onSaveTitle(intent: ChatUiIntent.SaveTitle) {
+        if (!isStateOf<ChatUiState.Normal>()) return
         val sessionId = mSessionId ?: return
         withContext(Dispatchers.IO) {
             mChatRepository.updateSessionTitle(sessionId, intent.value.trim().ifBlank { mContext.getString(R.string.untitled_chat) })
@@ -503,6 +510,7 @@ class ChatViewModel : CoreViewModelWithEvent<ChatUiIntent, ChatUiState>(
 
     @UiIntentObserver(ChatUiIntent.SaveSummary::class)
     private suspend fun onSaveSummary(intent: ChatUiIntent.SaveSummary) {
+        if (!isStateOf<ChatUiState.Normal>()) return
         val sessionId = mSessionId ?: return
         withContext(Dispatchers.IO) {
             mChatRepository.updateCurrentSummary(sessionId, intent.value)
@@ -512,6 +520,7 @@ class ChatViewModel : CoreViewModelWithEvent<ChatUiIntent, ChatUiState>(
 
     @UiIntentObserver(ChatUiIntent.SaveUserNote::class)
     private suspend fun onSaveUserNote(intent: ChatUiIntent.SaveUserNote) {
+        if (!isStateOf<ChatUiState.Normal>()) return
         val sessionId = mSessionId ?: return
         withContext(Dispatchers.IO) {
             mChatRepository.updateSessionUserNote(sessionId, intent.value)
@@ -543,6 +552,7 @@ class ChatViewModel : CoreViewModelWithEvent<ChatUiIntent, ChatUiState>(
      */
     @UiIntentObserver(ChatUiIntent.SaveUserName::class)
     private suspend fun onSaveUserName(intent: ChatUiIntent.SaveUserName) {
+        if (!isStateOf<ChatUiState.Normal>()) return
         val sessionId = mSessionId ?: return
         withContext(Dispatchers.IO) {
             mChatRepository.updateSessionUserName(sessionId, intent.value.trim().ifBlank { "You" })
@@ -557,6 +567,7 @@ class ChatViewModel : CoreViewModelWithEvent<ChatUiIntent, ChatUiState>(
      */
     @UiIntentObserver(ChatUiIntent.SaveUserDescription::class)
     private suspend fun onSaveUserDescription(intent: ChatUiIntent.SaveUserDescription) {
+        if (!isStateOf<ChatUiState.Normal>()) return
         val sessionId = mSessionId ?: return
         withContext(Dispatchers.IO) {
             mChatRepository.updateSessionUserDescription(sessionId, intent.value.trim())
@@ -566,6 +577,7 @@ class ChatViewModel : CoreViewModelWithEvent<ChatUiIntent, ChatUiState>(
 
     @UiIntentObserver(ChatUiIntent.SaveCreatorNotes::class)
     private suspend fun onSaveCreatorNotes(intent: ChatUiIntent.SaveCreatorNotes) {
+        if (!isStateOf<ChatUiState.Normal>()) return
         val sessionId = mSessionId ?: return
         withContext(Dispatchers.IO) {
             mChatRepository.updateSessionCreatorNotes(sessionId, intent.value)
@@ -576,7 +588,8 @@ class ChatViewModel : CoreViewModelWithEvent<ChatUiIntent, ChatUiState>(
     @UiIntentObserver(ChatUiIntent.CopyMessage::class)
     private suspend fun onCopyMessage(intent: ChatUiIntent.CopyMessage) {
         val uiState = getOrNull<ChatUiState.Normal>() ?: return
-        val message = uiState.messages.firstOrNull { it.id == intent.messageId } ?: return
+        val message = uiState.conversationState.messages
+            .firstOrNull { it.id == intent.messageId } ?: return
         if (message.content.isBlank()) return
         ChatViewEvent.CopyText(message.content).emit()
     }
@@ -584,7 +597,8 @@ class ChatViewModel : CoreViewModelWithEvent<ChatUiIntent, ChatUiState>(
     @UiIntentObserver(ChatUiIntent.StartEditMessage::class)
     private suspend fun onStartEditMessage(intent: ChatUiIntent.StartEditMessage) {
         val uiState = getOrNull<ChatUiState.Normal>() ?: return
-        val message = uiState.messages.firstOrNull { it.id == intent.messageId } ?: return
+        val message = uiState.conversationState.messages
+            .firstOrNull { it.id == intent.messageId } ?: return
         if (message.isStreaming) return
         val rawContent = withContext(Dispatchers.IO) {
             val sessionId = mSessionId ?: return@withContext null
@@ -593,48 +607,54 @@ class ChatViewModel : CoreViewModelWithEvent<ChatUiIntent, ChatUiState>(
                 ?.content
         } ?: return
         uiState.copy(
-            editingMessageId = message.id,
-            editingMessageDraft = rawContent
+            conversationState = uiState.conversationState.copy(
+                editingMessageId = message.id,
+                editingMessageDraft = rawContent
+            )
         ).setup()
     }
 
     @UiIntentObserver(ChatUiIntent.ChangeEditingMessageDraft::class)
     private fun onChangeEditingMessageDraft(intent: ChatUiIntent.ChangeEditingMessageDraft) {
         val uiState = getOrNull<ChatUiState.Normal>() ?: return
-        if (uiState.editingMessageId == null) return
-        uiState.copy(editingMessageDraft = intent.value).setup()
+        if (uiState.conversationState.editingMessageId == null) return
+        uiState.copy(
+            conversationState = uiState.conversationState.copy(
+                editingMessageDraft = intent.value
+            )
+        ).setup()
     }
 
     @UiIntentObserver(ChatUiIntent.SaveEditingMessage::class)
     private suspend fun onSaveEditingMessage() {
         val uiState = getOrNull<ChatUiState.Normal>() ?: return
         val sessionId = mSessionId ?: return
-        val messageId = uiState.editingMessageId?.toLongOrNull() ?: return
+        val messageId = uiState.conversationState.editingMessageId?.toLongOrNull() ?: return
         withContext(Dispatchers.IO) {
             val message = mChatRepository.getMessagesBySessionId(sessionId)
                 .firstOrNull { it.id == messageId } ?: return@withContext
             val content = when (message.source) {
                 ChatMessage.Source.User -> applyUserRegex(
                     sessionId,
-                    uiState.editingMessageDraft,
+                    uiState.conversationState.editingMessageDraft,
                     isEdit = true
                 )
                 ChatMessage.Source.Char -> applyAiRegex(
                     sessionId,
-                    uiState.editingMessageDraft,
+                    uiState.conversationState.editingMessageDraft,
                     isEdit = true
                 )
                 ChatMessage.Source.System,
-                ChatMessage.Source.Summary -> uiState.editingMessageDraft
+                ChatMessage.Source.Summary -> uiState.conversationState.editingMessageDraft
             }
             mChatRepository.updateMessageContent(messageId, content)
         }
         refreshUiState(
             sessionId = sessionId,
-            inputDraft = uiState.inputDraft,
-            isExpanded = uiState.isSessionLoreExpanded,
-            generationState = uiState.generationState,
-            expandedThinkBlockIds = uiState.expandedThinkBlockIds,
+            inputDraft = uiState.conversationState.inputDraft,
+            isExpanded = uiState.lorebookState.isExpanded,
+            generationState = uiState.conversationState.generationState,
+            expandedThinkBlockIds = uiState.conversationState.expandedThinkBlockIds,
             editingMessageId = null,
             editingMessageDraft = ""
         )
@@ -644,19 +664,25 @@ class ChatViewModel : CoreViewModelWithEvent<ChatUiIntent, ChatUiState>(
     private fun onCancelEditingMessage() {
         val uiState = getOrNull<ChatUiState.Normal>() ?: return
         uiState.copy(
-            editingMessageId = null,
-            editingMessageDraft = ""
+            conversationState = uiState.conversationState.copy(
+                editingMessageId = null,
+                editingMessageDraft = ""
+            )
         ).setup()
     }
 
     @UiIntentObserver(ChatUiIntent.ToggleThinkBlock::class)
     private fun onToggleThinkBlock(intent: ChatUiIntent.ToggleThinkBlock) {
         val uiState = getOrNull<ChatUiState.Normal>() ?: return
-        val ids = uiState.expandedThinkBlockIds.toMutableSet()
+        val ids = uiState.conversationState.expandedThinkBlockIds.toMutableSet()
         if (!ids.add(intent.blockId)) {
             ids.remove(intent.blockId)
         }
-        uiState.copy(expandedThinkBlockIds = ids).setup()
+        uiState.copy(
+            conversationState = uiState.conversationState.copy(
+                expandedThinkBlockIds = ids.toSet()
+            )
+        ).setup()
     }
 
     private suspend fun regenerateLastAssistantMessage(sessionId: Long) {
@@ -683,11 +709,11 @@ class ChatViewModel : CoreViewModelWithEvent<ChatUiIntent, ChatUiState>(
             runCatching {
                 refreshUiState(
                     sessionId = sessionId,
-                    inputDraft = uiState.inputDraft,
+                    inputDraft = uiState.conversationState.inputDraft,
                     page = ChatPage.Conversation,
-                    isExpanded = uiState.isSessionLoreExpanded,
+                    isExpanded = uiState.lorebookState.isExpanded,
                     generationState = ChatGenerationState.Requesting,
-                    expandedThinkBlockIds = uiState.expandedThinkBlockIds
+                    expandedThinkBlockIds = uiState.conversationState.expandedThinkBlockIds
                 )
                 val built = withContext(Dispatchers.IO) {
                     buildGenerationRequest(
@@ -714,9 +740,15 @@ class ChatViewModel : CoreViewModelWithEvent<ChatUiIntent, ChatUiState>(
                 }
                 maybeAutoSummarize(sessionId)
             }.onFailure { throwable ->
-                if (throwable is CancellationException) return@onFailure
-                AppViewEvent.PopupToastMessage(throwable.message ?: mContext.getString(R.string.regenerate_failed)).tryEmit()
-                refreshUiState(sessionId = sessionId, generationState = ChatGenerationState.Failed(throwable.message ?: mContext.getString(R.string.regenerate_failed)))
+                val message = throwable.toGenerationFailureMessage(
+                    mContext,
+                    R.string.regenerate_failed
+                ) ?: return@onFailure
+                AppViewEvent.PopupToastMessage(message).tryEmit()
+                refreshUiState(
+                    sessionId = sessionId,
+                    generationState = ChatGenerationState.Failed(message)
+                )
             }
         }
     }
@@ -740,10 +772,10 @@ class ChatViewModel : CoreViewModelWithEvent<ChatUiIntent, ChatUiState>(
             runCatching {
                 refreshUiState(
                     sessionId = sessionId,
-                    inputDraft = uiState.inputDraft,
-                    isExpanded = uiState.isSessionLoreExpanded,
+                    inputDraft = uiState.conversationState.inputDraft,
+                    isExpanded = uiState.lorebookState.isExpanded,
                     generationState = ChatGenerationState.Requesting,
-                    expandedThinkBlockIds = uiState.expandedThinkBlockIds
+                    expandedThinkBlockIds = uiState.conversationState.expandedThinkBlockIds
                 )
                 val generationMode = if (isLastUser) PromptGenerationMode.Normal else PromptGenerationMode.Continue
                 val built = withContext(Dispatchers.IO) {
@@ -767,10 +799,16 @@ class ChatViewModel : CoreViewModelWithEvent<ChatUiIntent, ChatUiState>(
                 }
                 maybeAutoSummarize(sessionId)
             }.onFailure { throwable ->
-                if (throwable is CancellationException) return@onFailure
                 val errorResId = if (isLastUser) R.string.generation_failed else R.string.continue_generation_failed
-                AppViewEvent.PopupToastMessage(throwable.message ?: mContext.getString(errorResId)).tryEmit()
-                refreshUiState(sessionId = sessionId, generationState = ChatGenerationState.Failed(throwable.message ?: mContext.getString(errorResId)))
+                val message = throwable.toGenerationFailureMessage(
+                    mContext,
+                    errorResId
+                ) ?: return@onFailure
+                AppViewEvent.PopupToastMessage(message).tryEmit()
+                refreshUiState(
+                    sessionId = sessionId,
+                    generationState = ChatGenerationState.Failed(message)
+                )
             }
         }
     }
@@ -786,11 +824,11 @@ class ChatViewModel : CoreViewModelWithEvent<ChatUiIntent, ChatUiState>(
             runCatching {
                 refreshUiState(
                     sessionId = sessionId,
-                    inputDraft = uiState.inputDraft,
+                    inputDraft = uiState.conversationState.inputDraft,
                     page = ChatPage.Conversation,
-                    isExpanded = uiState.isSessionLoreExpanded,
+                    isExpanded = uiState.lorebookState.isExpanded,
                     generationState = ChatGenerationState.Requesting,
-                    expandedThinkBlockIds = uiState.expandedThinkBlockIds
+                    expandedThinkBlockIds = uiState.conversationState.expandedThinkBlockIds
                 )
                 val built = withContext(Dispatchers.IO) {
                     buildGenerationRequest(sessionId, PromptGenerationMode.Impersonate)
@@ -813,9 +851,15 @@ class ChatViewModel : CoreViewModelWithEvent<ChatUiIntent, ChatUiState>(
                 }
                 maybeAutoSummarize(sessionId)
             }.onFailure { throwable ->
-                if (throwable is CancellationException) return@onFailure
-                AppViewEvent.PopupToastMessage(throwable.message ?: mContext.getString(R.string.impersonation_failed)).tryEmit()
-                refreshUiState(sessionId = sessionId, generationState = ChatGenerationState.Failed(throwable.message ?: mContext.getString(R.string.impersonation_failed)))
+                val message = throwable.toGenerationFailureMessage(
+                    mContext,
+                    R.string.impersonation_failed
+                ) ?: return@onFailure
+                AppViewEvent.PopupToastMessage(message).tryEmit()
+                refreshUiState(
+                    sessionId = sessionId,
+                    generationState = ChatGenerationState.Failed(message)
+                )
             }
         }
     }
@@ -837,16 +881,14 @@ class ChatViewModel : CoreViewModelWithEvent<ChatUiIntent, ChatUiState>(
             return
         }
         withContext(Dispatchers.IO) {
-            when (output) {
-                is GenerationOutput.Create -> {
-                    mChatRepository.createMessage(sessionId, output.source, processedContent)
-                }
-                is GenerationOutput.Update -> {
-                    mChatRepository.updateMessageContent(output.messageId, processedContent)
-                    mChatRepository.updateSessionLatestTime(sessionId)
-                }
-            }
-            mChatRepository.updateSessionWorldInfoState(sessionId, worldInfoStateJson)
+            mChatRepository.commitGenerationResult(
+                sessionId = sessionId,
+                messageId = (output as? GenerationOutput.Update)?.messageId,
+                source = output.source(),
+                content = processedContent,
+                deleteEmptyPlaceholder = false,
+                worldInfoStateJson = worldInfoStateJson
+            )
         }
         refreshUiState(sessionId = sessionId, generationState = ChatGenerationState.Idle)
     }
@@ -857,100 +899,99 @@ class ChatViewModel : CoreViewModelWithEvent<ChatUiIntent, ChatUiState>(
         output: GenerationOutput,
         worldInfoStateJson: String
     ) {
-        mStreamingOutput = output
-        withContext(Dispatchers.IO) {
+        val regexContext = withContext(Dispatchers.IO) {
             val session = mChatRepository.getSessionById(sessionId)
             val character = session?.let {
                 mCharacterRepository.getCharacterById(it.characterId)
             }
             if (session != null && character != null) {
-                mStreamingRegexScripts = mRegexRepository.activeScripts(listOf(character))
-                mStreamingRegexMacros = RegexScriptRuntime.macros(
-                    session.userName,
-                    character.name,
-                    session.userDescription,
-                    character.scenario
+                StreamingRegexContext(
+                    scripts = mRegexRepository.activeScripts(listOf(character)),
+                    macros = RegexScriptRuntime.macros(
+                        session.userName,
+                        character.name,
+                        session.userDescription,
+                        character.scenario
+                    )
                 )
+            } else {
+                StreamingRegexContext()
             }
         }
-        // 先插入空 assistant 消息作为流式占位，后续 delta 只更新 UI，完成或停止时再持久化完整内容。
-        when (output) {
-            is GenerationOutput.Create -> {
-                mStreamingMessageId = withContext(Dispatchers.IO) {
-                    mChatRepository.createMessage(sessionId, output.source, "")
-                }
-                mStreamingContent = ""
-                mStreamingCreatedMessage = true
-            }
-            is GenerationOutput.Update -> {
-                mStreamingMessageId = output.messageId
-                mStreamingContent = ""
-                mStreamingCreatedMessage = false
-            }
-        }
-        refreshUiState(
+        val token = Any()
+        var active = ActiveStreamingGeneration(
+            token = token,
             sessionId = sessionId,
-            generationState = ChatGenerationState.Streaming(mStreamingMessageId, mStreamingContent)
+            output = output,
+            messageId = (output as? GenerationOutput.Update)?.messageId,
+            createdPlaceholder = false,
+            content = "",
+            regexScripts = regexContext.scripts,
+            regexMacros = regexContext.macros,
+            worldInfoStateJson = worldInfoStateJson
         )
+        mActiveStreamingGeneration = active
         try {
+            if (output is GenerationOutput.Create) {
+                // 占位消息不推进 latestTime；首个 delta 前取消时可以无痕删除。
+                val placeholderId = withContext(NonCancellable + Dispatchers.IO) {
+                    mChatRepository.createGenerationPlaceholder(sessionId, output.source)
+                }
+                active = active.copy(
+                    messageId = placeholderId,
+                    createdPlaceholder = true
+                )
+                mActiveStreamingGeneration = active
+            }
+            refreshUiState(
+                sessionId = sessionId,
+                generationState = ChatGenerationState.Streaming(active.messageId, active.content)
+            )
             mLLMRepository.streamGenerateWithSelectedProvider(request).collect { event ->
                 currentCoroutineContext().ensureActive()
                 when (event) {
                     is LLMStreamEvent.Delta -> {
-                        mStreamingContent += event.content
-                        val displayContent = applyStreamingDisplayRegex(
-                            mStreamingContent,
-                            output
-                        )
+                        active = active.copy(content = active.content + event.content)
+                        mActiveStreamingGeneration = active
+                        val displayContent = applyStreamingDisplayRegex(active)
                         val uiState = getOrNull<ChatUiState.Normal>() ?: return@collect
                         uiState.copy(
-                            generationState = ChatGenerationState.Streaming(mStreamingMessageId, mStreamingContent),
-                            messages = uiState.messages.replaceStreamingMessage(
-                                mStreamingMessageId,
-                                displayContent
+                            conversationState = uiState.conversationState.copy(
+                                generationState = ChatGenerationState.Streaming(
+                                    active.messageId,
+                                    active.content
+                                ),
+                                messages = uiState.conversationState.messages.replaceStreamingMessage(
+                                    active.messageId,
+                                    displayContent
+                                )
                             )
                         ).setup()
                     }
                     is LLMStreamEvent.Finished -> Unit
                 }
             }
-            val finalContent = withContext(Dispatchers.IO) {
-                applyGeneratedRegex(sessionId, mStreamingContent, output)
-            }
-            val messageId = mStreamingMessageId
-            withContext(Dispatchers.IO) {
-                if (messageId != null && finalContent.isNotBlank()) {
-                    mChatRepository.updateMessageContent(messageId, finalContent)
-                    mChatRepository.updateSessionLatestTime(sessionId)
-                    mChatRepository.updateSessionWorldInfoState(sessionId, worldInfoStateJson)
-                } else if (messageId != null && mStreamingCreatedMessage) {
-                    mChatRepository.deleteMessage(messageId)
-                }
-            }
-        } catch (e: Exception) {
-            if (e is CancellationException) throw e
-            val messageId = mStreamingMessageId
-            val partialContent = withContext(Dispatchers.IO) {
-                mStreamingContent.takeIf { it.isNotBlank() }
-                    ?.let { applyGeneratedRegex(sessionId, it, output) }
-                    .orEmpty()
-            }
-            withContext(Dispatchers.IO) {
-                if (messageId != null && partialContent.isNotBlank()) {
-                    mChatRepository.updateMessageContent(messageId, partialContent)
-                    mChatRepository.updateSessionLatestTime(sessionId)
-                } else if (messageId != null && mStreamingCreatedMessage) {
-                    mChatRepository.deleteMessage(messageId)
-                }
-            }
-            throw e
         } finally {
-            mStreamingMessageId = null
-            mStreamingContent = ""
-            mStreamingCreatedMessage = false
-            mStreamingOutput = null
-            mStreamingRegexScripts = emptyList()
-            mStreamingRegexMacros = emptyMap()
+            val snapshot = active
+            try {
+                withContext(NonCancellable + Dispatchers.IO) {
+                    val finalContent = snapshot.content.takeIf { it.isNotBlank() }
+                        ?.let { applyStreamingGeneratedRegex(snapshot) }
+                        .orEmpty()
+                    mChatRepository.commitGenerationResult(
+                        sessionId = snapshot.sessionId,
+                        messageId = snapshot.messageId,
+                        source = snapshot.output.source(),
+                        content = finalContent,
+                        deleteEmptyPlaceholder = snapshot.createdPlaceholder,
+                        worldInfoStateJson = snapshot.worldInfoStateJson
+                    )
+                }
+            } finally {
+                if (mActiveStreamingGeneration?.token === token) {
+                    mActiveStreamingGeneration = null
+                }
+            }
         }
         refreshUiState(sessionId = sessionId, generationState = ChatGenerationState.Idle)
     }
@@ -966,9 +1007,9 @@ class ChatViewModel : CoreViewModelWithEvent<ChatUiIntent, ChatUiState>(
                     if (currentState != null && currentState.dialogState is ChatDialogState.Summarizing) {
                         refreshUiState(
                             sessionId = sessionId,
-                            inputDraft = currentState.inputDraft,
-                            isExpanded = currentState.isSessionLoreExpanded,
-                            expandedThinkBlockIds = currentState.expandedThinkBlockIds,
+                            inputDraft = currentState.conversationState.inputDraft,
+                            isExpanded = currentState.lorebookState.isExpanded,
+                            expandedThinkBlockIds = currentState.conversationState.expandedThinkBlockIds,
                             dialogState = ChatDialogState.None
                         )
                     }
@@ -1053,11 +1094,12 @@ class ChatViewModel : CoreViewModelWithEvent<ChatUiIntent, ChatUiState>(
                 )
             }
             if (showToast) AppViewEvent.PopupToastMessageByResId(R.string.summary_updated).tryEmit()
-        }.onFailure {
-            if (it is CancellationException) {
-                throw it
-            }
-            AppViewEvent.PopupToastMessage(it.message ?: mContext.getString(R.string.summary_failed)).tryEmit()
+        }.onFailure { throwable ->
+            val message = throwable.toGenerationFailureMessage(
+                mContext,
+                R.string.summary_failed
+            ) ?: throw throwable
+            AppViewEvent.PopupToastMessage(message).tryEmit()
         }
     }
 
@@ -1190,8 +1232,8 @@ class ChatViewModel : CoreViewModelWithEvent<ChatUiIntent, ChatUiState>(
         val lorebookData = getAllLorebookEntries()
         val enabledIds = mChatRepository.getSessionLorebookEntryIds(session).toSet()
         val effectiveCreatorNotes = mChatRepository.getSessionCreatorNotes(session)
-        val avatarFilePath = character.avatar.takeIf { it.isNotBlank() }?.let {
-            mFileRepository.getFile(it)?.absolutePath
+        val avatarImage = character.avatar.takeIf { it.isNotBlank() }?.let {
+            mFileRepository.loadBitmap(it)?.asImageBitmap()
         }
         return ChatUiState.Normal(
             page = page,
@@ -1202,41 +1244,53 @@ class ChatViewModel : CoreViewModelWithEvent<ChatUiIntent, ChatUiState>(
                 messageCount = messages.size,
                 enabledIds = enabledIds
             ),
-            character = character.toChatCharacterItem(avatarFilePath),
-            messages = displayMessages.toChatMessageItems(
-                characterName = character.name,
-                userName = session.userName,
-                systemSpeaker = mContext.getString(R.string.system_speaker),
-                streamingMessageId = mStreamingMessageId
+            character = character.toChatCharacterItem(avatarImage),
+            conversationState = ChatConversationState(
+                messages = displayMessages.toChatMessageItems(
+                    characterName = character.name,
+                    userName = session.userName,
+                    systemSpeaker = mContext.getString(R.string.system_speaker),
+                    streamingMessageId = mActiveStreamingGeneration?.messageId
+                ),
+                inputDraft = inputDraft,
+                generationState = generationState,
+                expandedThinkBlockIds = expandedThinkBlockIds,
+                editingMessageId = editingMessageId,
+                editingMessageDraft = editingMessageDraft
             ),
-            lorebookGroups = lorebookData.toChatLorebookGroupItems(
-                enabledIds = enabledIds,
-                unknownLorebookName = mContext.getString(R.string.unknown_lorebook)
-            ),
-            lorebookQuery = lorebookQuery,
-            isSessionLoreExpanded = isExpanded,
-            inputDraft = inputDraft,
-            generationState = generationState,
+            lorebookState = lorebookData.toChatLorebookGroupItems(
+                    enabledIds = enabledIds,
+                    unknownLorebookName = mContext.getString(R.string.unknown_lorebook)
+                ).let { groups ->
+                    ChatLorebookState(
+                        groups = groups,
+                        visibleGroups = groups.filterForQuery(lorebookQuery),
+                        query = lorebookQuery,
+                        isExpanded = isExpanded
+                    )
+                },
             streamEnabled = AppModel.streamEnabled,
             hasPromptInspection = mLastPromptInspection != null,
-            expandedThinkBlockIds = expandedThinkBlockIds,
-            editingMessageId = editingMessageId,
-            editingMessageDraft = editingMessageDraft,
             dialogState = dialogState
         )
     }
 
     private suspend fun refreshUiState(
         sessionId: Long,
-        inputDraft: String = getOrNull<ChatUiState.Normal>()?.inputDraft.orEmpty(),
+        inputDraft: String = getOrNull<ChatUiState.Normal>()
+            ?.conversationState?.inputDraft.orEmpty(),
         page: ChatPage = getOrNull<ChatUiState.Normal>()?.page ?: ChatPage.Conversation,
-        isExpanded: Boolean = getOrNull<ChatUiState.Normal>()?.isSessionLoreExpanded ?: false,
-        lorebookQuery: String = getOrNull<ChatUiState.Normal>()?.lorebookQuery.orEmpty(),
+        isExpanded: Boolean = getOrNull<ChatUiState.Normal>()?.lorebookState?.isExpanded ?: false,
+        lorebookQuery: String = getOrNull<ChatUiState.Normal>()?.lorebookState?.query.orEmpty(),
         loadState: ChatLoadState = ChatLoadState.None,
-        generationState: ChatGenerationState = getOrNull<ChatUiState.Normal>()?.generationState ?: ChatGenerationState.Idle,
-        expandedThinkBlockIds: Set<String> = getOrNull<ChatUiState.Normal>()?.expandedThinkBlockIds ?: emptySet(),
-        editingMessageId: String? = getOrNull<ChatUiState.Normal>()?.editingMessageId,
-        editingMessageDraft: String = getOrNull<ChatUiState.Normal>()?.editingMessageDraft.orEmpty(),
+        generationState: ChatGenerationState = getOrNull<ChatUiState.Normal>()
+            ?.conversationState?.generationState ?: ChatGenerationState.Idle,
+        expandedThinkBlockIds: Set<String> = getOrNull<ChatUiState.Normal>()
+            ?.conversationState?.expandedThinkBlockIds ?: emptySet(),
+        editingMessageId: String? = getOrNull<ChatUiState.Normal>()
+            ?.conversationState?.editingMessageId,
+        editingMessageDraft: String = getOrNull<ChatUiState.Normal>()
+            ?.conversationState?.editingMessageDraft.orEmpty(),
         dialogState: ChatDialogState = getOrNull<ChatUiState.Normal>()?.dialogState ?: ChatDialogState.None
     ) {
         val nextState = withContext(Dispatchers.IO) {
@@ -1352,23 +1406,73 @@ class ChatViewModel : CoreViewModelWithEvent<ChatUiIntent, ChatUiState>(
         }
     }
 
-    private fun applyStreamingDisplayRegex(
-        input: String,
-        output: GenerationOutput
-    ): String {
-        return if (output is GenerationOutput.Create && output.source == ChatMessage.Source.User) {
+    private fun applyStreamingGeneratedRegex(snapshot: ActiveStreamingGeneration): String {
+        if (snapshot.output.source() != ChatMessage.Source.User) {
+            return mRegexRuntime.executeAiMessage(
+                input = snapshot.content,
+                scripts = snapshot.regexScripts,
+                mode = RegexExecutionMode.Source,
+                macros = snapshot.regexMacros
+            ).text
+        }
+        val slashProcessed = if (snapshot.content.startsWith('/')) {
+            mRegexRuntime.execute(
+                input = snapshot.content,
+                scripts = snapshot.regexScripts,
+                placement = RegexPlacement.SlashCommand,
+                mode = RegexExecutionMode.Source,
+                macros = snapshot.regexMacros
+            ).text
+        } else {
+            snapshot.content
+        }
+        return mRegexRuntime.execute(
+            input = slashProcessed,
+            scripts = snapshot.regexScripts,
+            placement = RegexPlacement.UserInput,
+            mode = RegexExecutionMode.Source,
+            macros = snapshot.regexMacros
+        ).text
+    }
+
+    private fun applyStreamingDisplayRegex(snapshot: ActiveStreamingGeneration): String {
+        return if (snapshot.output.source() == ChatMessage.Source.User) {
             mRegexRuntime.executeDisplayMessage(
-                input,
-                mStreamingRegexScripts,
-                mStreamingRegexMacros,
+                snapshot.content,
+                snapshot.regexScripts,
+                snapshot.regexMacros,
                 bodyPlacement = RegexPlacement.UserInput
             ).text
         } else {
             mRegexRuntime.executeDisplayMessage(
-                input,
-                mStreamingRegexScripts,
-                mStreamingRegexMacros
+                snapshot.content,
+                snapshot.regexScripts,
+                snapshot.regexMacros
             ).text
+        }
+    }
+
+    private fun List<ChatLorebookGroupItem>.filterForQuery(
+        query: String
+    ): List<ChatLorebookGroupItem> {
+        val normalizedQuery = query.trim()
+        if (normalizedQuery.isBlank()) return this
+        return mapNotNull { group ->
+            val groupMatches = group.lorebookName.contains(normalizedQuery, ignoreCase = true)
+            val matchingEntries = group.entries.filter { entry ->
+                entry.lorebookName.contains(normalizedQuery, ignoreCase = true) ||
+                    entry.name.contains(normalizedQuery, ignoreCase = true) ||
+                    entry.content.contains(normalizedQuery, ignoreCase = true) ||
+                    entry.keywords.any { it.contains(normalizedQuery, ignoreCase = true) } ||
+                    entry.secondaryKeywords.any {
+                        it.contains(normalizedQuery, ignoreCase = true)
+                    }
+            }
+            when {
+                groupMatches -> group
+                matchingEntries.isNotEmpty() -> group.copy(entries = matchingEntries)
+                else -> null
+            }
         }
     }
 
@@ -1391,4 +1495,28 @@ class ChatViewModel : CoreViewModelWithEvent<ChatUiIntent, ChatUiState>(
         data class Create(val source: ChatMessage.Source) : GenerationOutput()
         data class Update(val messageId: Long) : GenerationOutput()
     }
+
+    private fun GenerationOutput.source(): ChatMessage.Source {
+        return when (this) {
+            is GenerationOutput.Create -> source
+            is GenerationOutput.Update -> ChatMessage.Source.Char
+        }
+    }
+
+    private data class StreamingRegexContext(
+        val scripts: List<ScopedRegexScript> = emptyList(),
+        val macros: Map<String, String> = emptyMap()
+    )
+
+    private data class ActiveStreamingGeneration(
+        val token: Any,
+        val sessionId: Long,
+        val output: GenerationOutput,
+        val messageId: Long?,
+        val createdPlaceholder: Boolean,
+        val content: String,
+        val regexScripts: List<ScopedRegexScript>,
+        val regexMacros: Map<String, String>,
+        val worldInfoStateJson: String
+    )
 }

@@ -47,7 +47,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import me.kafuuneko.rpclient.R
-import me.kafuuneko.rpclient.feature.groupchat.ui.GroupChatLorebookSelector
 import me.kafuuneko.rpclient.feature.groupchatcreate.model.GroupChatCreateCharacterItem
 import me.kafuuneko.rpclient.feature.groupchatcreate.model.GroupChatCreateGreetingState
 import me.kafuuneko.rpclient.feature.groupchatcreate.model.GroupChatGreetingCharacterItem
@@ -55,8 +54,9 @@ import me.kafuuneko.rpclient.feature.groupchatcreate.model.GroupChatGreetingMode
 import me.kafuuneko.rpclient.feature.groupchatcreate.presentation.GroupChatCreateLoadState
 import me.kafuuneko.rpclient.feature.groupchatcreate.presentation.GroupChatCreateUiIntent
 import me.kafuuneko.rpclient.feature.groupchatcreate.presentation.GroupChatCreateUiState
+import me.kafuuneko.rpclient.libs.groupchat.model.GroupChatActivationStrategy
+import me.kafuuneko.rpclient.ui.widgets.groupchat.GroupChatLorebookSelector
 import me.kafuuneko.rpclient.libs.core.ActivityPreview
-import me.kafuuneko.rpclient.libs.room.entity.GroupChatSession
 import me.kafuuneko.rpclient.ui.theme.getMacaronColor
 import me.kafuuneko.rpclient.ui.widgets.AppTopBar
 import me.kafuuneko.rpclient.ui.widgets.RpAvatar
@@ -200,16 +200,8 @@ private fun GroupChatCreateNormalView(
             }
             item {
                 GroupChatLorebookSelector(
-                    groups = state.lorebookGroups.map { group ->
-                        group.copy(
-                            entries = group.entries.map { entry ->
-                                entry.copy(
-                                    enabled =
-                                        entry.id in state.selectedLorebookEntryIds
-                                )
-                            }
-                        )
-                    },
+                    groups = state.lorebookGroups,
+                    visibleGroups = state.visibleLorebookGroups,
                     query = state.lorebookQuery,
                     onQueryChange = {
                         emitIntent(GroupChatCreateUiIntent.ChangeLorebookQuery(it))
@@ -228,8 +220,8 @@ private fun GroupChatCreateNormalView(
 
 @Composable
 private fun StrategySection(
-    selected: GroupChatSession.ActivationStrategy,
-    onSelect: (GroupChatSession.ActivationStrategy) -> Unit
+    selected: GroupChatActivationStrategy,
+    onSelect: (GroupChatActivationStrategy) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         RpSectionHeader(title = stringResource(R.string.group_chat_turn_strategy))
@@ -237,7 +229,7 @@ private fun StrategySection(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            GroupChatSession.ActivationStrategy.entries.forEach { strategy ->
+            GroupChatActivationStrategy.entries.forEach { strategy ->
                 FilterChip(
                     selected = selected == strategy,
                     onClick = { onSelect(strategy) },
@@ -689,27 +681,27 @@ private fun LoadStateOverlay(loadState: GroupChatCreateLoadState) {
     }
 }
 
-private fun GroupChatSession.ActivationStrategy.titleRes(): Int {
+private fun GroupChatActivationStrategy.titleRes(): Int {
     return when (this) {
-        GroupChatSession.ActivationStrategy.Manual -> R.string.group_chat_strategy_manual
-        GroupChatSession.ActivationStrategy.Natural -> R.string.group_chat_strategy_natural
-        GroupChatSession.ActivationStrategy.List -> R.string.group_chat_strategy_list
-        GroupChatSession.ActivationStrategy.Pooled -> R.string.group_chat_strategy_pooled
+        GroupChatActivationStrategy.Manual -> R.string.group_chat_strategy_manual
+        GroupChatActivationStrategy.Natural -> R.string.group_chat_strategy_natural
+        GroupChatActivationStrategy.List -> R.string.group_chat_strategy_list
+        GroupChatActivationStrategy.Pooled -> R.string.group_chat_strategy_pooled
     }
 }
 
-private fun GroupChatSession.ActivationStrategy.descriptionRes(): Int {
+private fun GroupChatActivationStrategy.descriptionRes(): Int {
     return when (this) {
-        GroupChatSession.ActivationStrategy.Manual ->
+        GroupChatActivationStrategy.Manual ->
             R.string.group_chat_strategy_manual_desc
 
-        GroupChatSession.ActivationStrategy.Natural ->
+        GroupChatActivationStrategy.Natural ->
             R.string.group_chat_strategy_natural_desc
 
-        GroupChatSession.ActivationStrategy.List ->
+        GroupChatActivationStrategy.List ->
             R.string.group_chat_strategy_list_desc
 
-        GroupChatSession.ActivationStrategy.Pooled ->
+        GroupChatActivationStrategy.Pooled ->
             R.string.group_chat_strategy_pooled_desc
     }
 }

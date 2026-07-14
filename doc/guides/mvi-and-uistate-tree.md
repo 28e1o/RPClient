@@ -180,6 +180,6 @@ UiState 不应保存：
 1. `Context`、`Activity`、`ViewModel`。
 2. 输入流、文件句柄、数据库连接、网络响应体。
 3. API Key、认证 token、真实请求头。
-4. 完整原始请求/响应 JSON，除非是 request log 页面明确展示的脱敏数据。
+4. 完整原始请求/响应 JSON，除非是用户明确开启 Debug 后进入 request log 页面查看的调试数据。
 5. 真实私有文件路径，除非已确认该路径可暴露给 UI。
 6. 可变集合引用。

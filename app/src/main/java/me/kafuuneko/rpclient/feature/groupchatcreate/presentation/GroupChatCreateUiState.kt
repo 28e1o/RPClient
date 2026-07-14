@@ -2,8 +2,8 @@ package me.kafuuneko.rpclient.feature.groupchatcreate.presentation
 
 import me.kafuuneko.rpclient.feature.groupchatcreate.model.GroupChatCreateCharacterItem
 import me.kafuuneko.rpclient.feature.groupchatcreate.model.GroupChatCreateGreetingState
-import me.kafuuneko.rpclient.feature.groupchat.model.GroupChatLorebookGroupItem
-import me.kafuuneko.rpclient.libs.room.entity.GroupChatSession
+import me.kafuuneko.rpclient.libs.groupchat.model.GroupChatActivationStrategy
+import me.kafuuneko.rpclient.libs.groupchat.model.GroupChatLorebookGroupItem
 
 /** 新建群聊页面状态树。 */
 sealed class GroupChatCreateUiState {
@@ -17,10 +17,11 @@ sealed class GroupChatCreateUiState {
         val characters: List<GroupChatCreateCharacterItem> = emptyList(),
         val visibleCharacters: List<GroupChatCreateCharacterItem> = emptyList(),
         val lorebookGroups: List<GroupChatLorebookGroupItem> = emptyList(),
+        val visibleLorebookGroups: List<GroupChatLorebookGroupItem> = lorebookGroups,
         val lorebookQuery: String = "",
         val selectedLorebookEntryIds: Set<Long> = emptySet(),
-        val activationStrategy: GroupChatSession.ActivationStrategy =
-            GroupChatSession.ActivationStrategy.Natural,
+        val activationStrategy: GroupChatActivationStrategy =
+            GroupChatActivationStrategy.Natural,
         val allowSelfResponses: Boolean = false,
         val greetingState: GroupChatCreateGreetingState = GroupChatCreateGreetingState()
     ) : GroupChatCreateUiState() {

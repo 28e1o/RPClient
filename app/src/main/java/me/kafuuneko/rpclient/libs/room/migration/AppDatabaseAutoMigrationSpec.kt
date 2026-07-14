@@ -1,0 +1,13 @@
+package me.kafuuneko.rpclient.libs.room.migration
+
+import androidx.room.DeleteTable
+import androidx.room.migration.AutoMigrationSpec
+
+/**
+ * 主业务数据库 v1→v2 自动迁移所需的删表消歧义声明。
+ *
+ * 历史请求日志可能包含升级前写入的原始载荷，因此允许 Room 删除旧日志表；
+ * Room 根据已导出的 v1/v2 schema 生成迁移，其余业务表继续接受 schema 校验。
+ */
+@DeleteTable(tableName = "llm_request_logs")
+class AppDatabaseAutoMigration1To2Spec : AutoMigrationSpec

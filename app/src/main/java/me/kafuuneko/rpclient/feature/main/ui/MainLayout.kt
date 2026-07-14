@@ -1,6 +1,5 @@
 package me.kafuuneko.rpclient.feature.main.ui
 
-import android.graphics.BitmapFactory
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
@@ -75,7 +74,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
@@ -92,13 +90,14 @@ import me.kafuuneko.rpclient.feature.main.presentation.MainDialogState
 import me.kafuuneko.rpclient.feature.main.presentation.MainUiIntent
 import me.kafuuneko.rpclient.feature.main.presentation.MainUiState
 import me.kafuuneko.rpclient.feature.main.model.MainChatSessionItem
+import me.kafuuneko.rpclient.feature.main.model.MainChatSessionGroup
 import me.kafuuneko.rpclient.feature.main.model.MainGroupChatSessionItem
+import me.kafuuneko.rpclient.feature.main.model.MainProviderItem
 import me.kafuuneko.rpclient.feature.main.model.MainSessionSelection
 import me.kafuuneko.rpclient.feature.main.model.MainSessionType
 import me.kafuuneko.rpclient.libs.prompt.PromptPostProcessingMode
 import me.kafuuneko.rpclient.libs.prompt.SummaryInjectionPosition
 import me.kafuuneko.rpclient.libs.prompt.SummaryInjectionRole
-import me.kafuuneko.rpclient.libs.room.entity.LLMProvider
 import me.kafuuneko.rpclient.ui.theme.AppTheme
 import me.kafuuneko.rpclient.ui.theme.ProviderAvailableColor
 import me.kafuuneko.rpclient.ui.theme.ProviderDisabledColor
@@ -404,7 +403,6 @@ private fun HomePage(
     emit: MainUiIntent.() -> Unit
 ) {
     val collapsedCharacterIds = remember { mutableStateListOf<String>() }
-    val sessionGroups = state.recentSessions.groupBy { it.characterId }
 
     LazyColumn(
         modifier = Modifier
@@ -471,7 +469,7 @@ private fun HomePage(
                 action = if (state.multiSelectMode) "" else stringResource(R.string.new_session)
             ) { if (!state.multiSelectMode) MainUiIntent.OpenCreateChat.emit() }
         }
-        if (state.recentSessions.isEmpty()) {
+        if (state.sessionGroups.isEmpty()) {
             item {
                 RpInfoCard(
                     modifier = Modifier.fillMaxWidth(),
@@ -481,8 +479,10 @@ private fun HomePage(
                 )
             }
         }
-        sessionGroups.forEach { (characterId, sessions) ->
-            val characterName = sessions.firstOrNull()?.characterName.orEmpty()
+        state.sessionGroups.forEach { group ->
+            val characterId = group.characterId
+            val characterName = group.characterName
+            val sessions = group.sessions
             val expanded = characterId !in collapsedCharacterIds
             item(key = "character-$characterId") {
                 SessionCharacterHeader(
@@ -842,7 +842,7 @@ private fun UserIdentityPanel(
                         maxLines = 6,
                         modifier = Modifier.fillMaxWidth()
                     )
-                    if (state.userAvatar.isNotBlank()) {
+                    if (state.hasUserAvatar) {
                         TextButton(
                             onClick = { MainUiIntent.ClearUserAvatar.emit() }
                         ) {
@@ -864,9 +864,6 @@ private fun UserAvatarPicker(
     val avatarColor = remember(state.userName) {
         getMacaronColor(state.userName.ifBlank { "user" })
     }
-    val bitmap = remember(state.userAvatarFilePath) {
-        state.userAvatarFilePath?.let { BitmapFactory.decodeFile(it) }
-    }
 
     Surface(
         modifier = Modifier
@@ -876,7 +873,7 @@ private fun UserAvatarPicker(
         color = MaterialTheme.colorScheme.surfaceVariant
     ) {
         Box(contentAlignment = Alignment.Center) {
-            if (bitmap == null) {
+            if (state.userAvatarImage == null) {
                 RpAvatar(
                     text = avatarText,
                     color = avatarColor,
@@ -885,7 +882,7 @@ private fun UserAvatarPicker(
                 )
             } else {
                 Image(
-                    bitmap = bitmap.asImageBitmap(),
+                    bitmap = state.userAvatarImage,
                     contentDescription = null,
                     modifier = Modifier
                         .size(72.dp)
@@ -1028,7 +1025,7 @@ private fun EmptyProviderCard(
 
 @Composable
 private fun ProviderCard(
-    provider: LLMProvider,
+    provider: MainProviderItem,
     selected: Boolean,
     onClick: () -> Unit
 ) {
@@ -1071,12 +1068,12 @@ private fun ProviderCard(
             
             val dotColor = when {
                 !provider.isEnabled -> ProviderDisabledColor
-                provider.apiKey.isBlank() -> ProviderPendingColor
+                !provider.hasApiKey -> ProviderPendingColor
                 else -> ProviderAvailableColor
             }
             val statusText = when {
                 !provider.isEnabled -> stringResource(R.string.not_enabled)
-                provider.apiKey.isBlank() -> stringResource(R.string.pending_config)
+                !provider.hasApiKey -> stringResource(R.string.pending_config)
                 else -> stringResource(R.string.available)
             }
             Row(
@@ -1456,15 +1453,21 @@ private fun MainLayoutPreview() {
         MainLayout(
             uiState = MainUiState.Normal(
                 homeState = MainHomeState(
-                    recentSessions = listOf(
-                        MainChatSessionItem(
-                            id = "1",
+                    sessionGroups = listOf(
+                        MainChatSessionGroup(
                             characterId = "1",
                             characterName = "Luna",
-                            title = "Night train",
-                            preview = "The city lights recede beyond the window.",
-                            messageCount = 18,
-                            updatedAt = "06-15 21:30"
+                            sessions = listOf(
+                                MainChatSessionItem(
+                                    id = "1",
+                                    characterId = "1",
+                                    characterName = "Luna",
+                                    title = "Night train",
+                                    preview = "The city lights recede beyond the window.",
+                                    messageCount = 18,
+                                    updatedAt = "06-15 21:30"
+                                )
+                            )
                         )
                     ),
                     groupChatSessions = listOf(
@@ -1482,8 +1485,8 @@ private fun MainLayoutPreview() {
                 ),
                 settingsState = MainSettingsState(
                     userName = "You",
-                    userAvatar = "",
-                    userAvatarFilePath = null,
+                    hasUserAvatar = false,
+                    userAvatarImage = null,
                     userDescription = "",
                     selectedProviderId = "",
                     providers = emptyList(),

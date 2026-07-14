@@ -9,6 +9,8 @@ import me.kafuuneko.rpclient.libs.llm.model.LLMMessage
 import me.kafuuneko.rpclient.libs.llm.model.LLMMessageRole
 import me.kafuuneko.rpclient.libs.llm.model.LLMProviderConfig
 import me.kafuuneko.rpclient.libs.room.repository.LLMRequestLogRepository
+import me.kafuuneko.rpclient.libs.llm.LLMEmptyResponseException
+import me.kafuuneko.rpclient.libs.llm.LLMHttpStatusException
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaType
@@ -47,7 +49,7 @@ internal suspend fun OkHttpClient.await(request: Request): String {
                     val body = it.body?.string().orEmpty()
                     if (!it.isSuccessful) {
                         continuation.resumeWithException(
-                            IOException("HTTP ${it.code}: ${body.ifBlank { it.message }}")
+                            LLMHttpStatusException(it.code, body.ifBlank { it.message })
                         )
                         return
                     }
@@ -64,10 +66,10 @@ internal suspend fun OkHttpClient.await(request: Request): String {
 internal fun OkHttpClient.streamLines(request: Request): Flow<String> = flow {
     val response = withContext(Dispatchers.IO) { newCall(request).execute() }
     response.use {
-        val body = it.body ?: throw IOException("HTTP ${it.code}: empty body")
+        val body = it.body ?: throw LLMEmptyResponseException()
         if (!it.isSuccessful) {
             val errorBody = withContext(Dispatchers.IO) { body.string() }
-            throw IOException("HTTP ${it.code}: ${errorBody.ifBlank { it.message }}")
+            throw LLMHttpStatusException(it.code, errorBody.ifBlank { it.message })
         }
         while (true) {
             val line = withContext(Dispatchers.IO) { body.source().readUtf8Line() } ?: break

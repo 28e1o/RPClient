@@ -45,7 +45,7 @@ class RegexScriptEngine {
                 errors += RegexExecutionError(
                     scriptId = script.id,
                     scriptName = script.scriptName,
-                    message = throwable.message ?: "Invalid regex script"
+                    message = "Invalid regex script"
                 )
             }
         }

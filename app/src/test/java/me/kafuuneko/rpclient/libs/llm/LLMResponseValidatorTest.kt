@@ -8,12 +8,11 @@ import me.kafuuneko.rpclient.libs.llm.model.LLMProviderType
 import me.kafuuneko.rpclient.libs.llm.model.LLMStreamEvent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LLMResponseValidatorTest {
     @Test
-    fun nonStreamingEmptyResponseIncludesFinishReason() {
+    fun nonStreamingEmptyResponseUsesFixedSafeMessage() {
         val error = assertThrows(LLMEmptyResponseException::class.java) {
             LLMGenerationResponse(
                 content = "",
@@ -21,11 +20,10 @@ class LLMResponseValidatorTest {
                 provider = LLMProviderType.Custom,
                 finishReason = "stop",
                 rawResponse = "{}"
-            ).requireNonEmptyContent("Test Provider", "requested-model")
+            ).requireNonEmptyContent()
         }
 
-        assertTrue(error.message.orEmpty().contains("finish reason: stop"))
-        assertTrue(error.message.orEmpty().contains("routed-model"))
+        assertEquals("The model returned an empty response", error.message)
     }
 
     @Test
@@ -38,13 +36,12 @@ class LLMResponseValidatorTest {
                         model = "routed-model"
                     )
                 )
-                    .requireNonEmptyContent("Test Provider", "requested-model")
+                    .requireNonEmptyContent()
                     .toList()
             }
         }
 
-        assertTrue(error.message.orEmpty().contains("routed-model"))
-        assertTrue(error.message.orEmpty().contains("finish reason: stop"))
+        assertEquals("The model returned an empty response", error.message)
     }
 
     @Test
@@ -55,7 +52,7 @@ class LLMResponseValidatorTest {
         )
 
         val result = flowOf(*events.toTypedArray())
-            .requireNonEmptyContent("Test Provider", "model")
+            .requireNonEmptyContent()
             .toList()
 
         assertEquals(events, result)

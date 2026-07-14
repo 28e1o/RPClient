@@ -29,6 +29,7 @@ class RequestLogViewModel : CoreViewModelWithEvent<RequestLogUiIntent, RequestLo
 
     @UiIntentObserver(RequestLogUiIntent.Back::class)
     private fun onBack() {
+        if (isStateOf<RequestLogUiState.Finished>()) return
         RequestLogUiState.finished(uiStateFlow.value).setup()
     }
 

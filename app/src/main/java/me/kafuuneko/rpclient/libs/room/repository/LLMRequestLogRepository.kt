@@ -2,14 +2,14 @@ package me.kafuuneko.rpclient.libs.room.repository
 
 import me.kafuuneko.rpclient.libs.AppModel
 import me.kafuuneko.rpclient.libs.llm.model.LLMProviderConfig
-import me.kafuuneko.rpclient.libs.room.AppDatabase
+import me.kafuuneko.rpclient.libs.room.RequestLogDatabase
 import me.kafuuneko.rpclient.libs.room.entity.LLMRequestLog
 
 /** 调试请求日志仓库；只有开启 [AppModel.debugModeEnabled] 时才写入原始内容。 */
 class LLMRequestLogRepository(
-    private val mAppDatabase: AppDatabase
+    private val mRequestLogDatabase: RequestLogDatabase
 ) {
-    private val mLLMRequestLogDao = mAppDatabase.getLLMRequestLogDao()
+    private val mLLMRequestLogDao = mRequestLogDatabase.getLLMRequestLogDao()
 
     /** 按最新优先读取全部调试日志。 */
     suspend fun getAllLogs(): List<LLMRequestLog> {

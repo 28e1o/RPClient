@@ -43,11 +43,13 @@ sealed class LLMProviderEditTestState {
     data object None : LLMProviderEditTestState()
     data object Testing : LLMProviderEditTestState()
     data class Success(val message: String) : LLMProviderEditTestState()
-    data class Failed(val message: String) : LLMProviderEditTestState()
+    data object Failed : LLMProviderEditTestState()
 }
 
 /** Provider 编辑页互斥显示的确认对话框。 */
 sealed class LLMProviderEditDialogState {
     data object None : LLMProviderEditDialogState()
     data object UnsavedChangesConfirm : LLMProviderEditDialogState()
+    data object ApiKeyEditor : LLMProviderEditDialogState()
+    data object CustomHeadersEditor : LLMProviderEditDialogState()
 }

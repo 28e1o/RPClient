@@ -87,13 +87,17 @@ import me.kafuuneko.rpclient.feature.groupchat.model.GroupChatGenerationState
 import me.kafuuneko.rpclient.feature.groupchat.model.GroupChatMemberItem
 import me.kafuuneko.rpclient.feature.groupchat.model.GroupChatMessageItem
 import me.kafuuneko.rpclient.feature.groupchat.presentation.GroupChatDialogState
+import me.kafuuneko.rpclient.feature.groupchat.presentation.GroupChatConversationState
 import me.kafuuneko.rpclient.feature.groupchat.presentation.GroupChatLoadState
 import me.kafuuneko.rpclient.feature.groupchat.presentation.GroupChatPage
+import me.kafuuneko.rpclient.feature.groupchat.presentation.GroupChatSettingsState
 import me.kafuuneko.rpclient.feature.groupchat.presentation.GroupChatUiIntent
 import me.kafuuneko.rpclient.feature.groupchat.presentation.GroupChatUiState
+import me.kafuuneko.rpclient.libs.groupchat.model.GroupChatActivationStrategy
+import me.kafuuneko.rpclient.libs.groupchat.model.GroupChatCharacterCardMode
+import me.kafuuneko.rpclient.libs.groupchat.model.GroupChatMessageSource
+import me.kafuuneko.rpclient.ui.widgets.groupchat.GroupChatLorebookSelector
 import me.kafuuneko.rpclient.libs.core.ActivityPreview
-import me.kafuuneko.rpclient.libs.room.entity.GroupChatMessage
-import me.kafuuneko.rpclient.libs.room.entity.GroupChatSession
 import me.kafuuneko.rpclient.ui.theme.getMacaronColor
 import me.kafuuneko.rpclient.ui.message.MarkdownMessageText
 import me.kafuuneko.rpclient.ui.message.MessageContentPart
@@ -129,12 +133,12 @@ private fun GroupChatNormalView(
     emitIntent: (GroupChatUiIntent) -> Unit
 ) {
     if (state.page == GroupChatPage.Settings) {
-        GroupChatSettingsView(state, emitIntent)
+        GroupChatSettingsView(state.settingsState, state.members, emitIntent)
         return
     }
-    val generating = state.generationState is GroupChatGenerationState.Generating
-    val canContinue = state.messages.any {
-        it.source == GroupChatMessage.Source.Character
+    val generating = state.conversationState.generationState is GroupChatGenerationState.Generating
+    val canContinue = state.conversationState.messages.any {
+        it.source == GroupChatMessageSource.Character
     }
     Scaffold(
         topBar = {
@@ -178,7 +182,7 @@ private fun GroupChatNormalView(
         },
         bottomBar = {
             Composer(
-                draft = state.inputDraft,
+                draft = state.conversationState.inputDraft,
                 generating = generating,
                 onDraftChange = {
                     emitIntent(GroupChatUiIntent.ChangeInputDraft(it))
@@ -197,14 +201,14 @@ private fun GroupChatNormalView(
                 .padding(padding)
         ) {
             GroupHeader(
-                strategy = state.activationStrategy,
-                generationState = state.generationState,
+                strategy = state.activeActivationStrategy,
+                generationState = state.conversationState.generationState,
                 canContinue = canContinue,
                 onContinue = { emitIntent(GroupChatUiIntent.ContinueLast) }
             )
             MemberRail(
                 members = state.members,
-                selectedSpeakerId = state.selectedSpeakerId,
+                selectedSpeakerId = state.conversationState.selectedSpeakerId,
                 enabled = !generating,
                 onSelect = {
                     emitIntent(GroupChatUiIntent.SelectSpeaker(it))
@@ -214,10 +218,10 @@ private fun GroupChatNormalView(
                 }
             )
             MessageList(
-                messages = state.messages,
-                expandedThinkBlockIds = state.expandedThinkBlockIds,
-                editingMessageId = state.editingMessageId,
-                editingMessageDraft = state.editingMessageDraft,
+                messages = state.conversationState.messages,
+                expandedThinkBlockIds = state.conversationState.expandedThinkBlockIds,
+                editingMessageId = state.conversationState.editingMessageId,
+                editingMessageDraft = state.conversationState.editingMessageDraft,
                 emitIntent = emitIntent,
                 modifier = Modifier.weight(1f)
             )
@@ -228,7 +232,8 @@ private fun GroupChatNormalView(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun GroupChatSettingsView(
-    state: GroupChatUiState.Normal,
+    state: GroupChatSettingsState,
+    members: List<GroupChatMemberItem>,
     emitIntent: (GroupChatUiIntent) -> Unit
 ) {
     Column(
@@ -322,7 +327,7 @@ private fun GroupChatSettingsView(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        GroupChatSession.ActivationStrategy.entries.forEach { strategy ->
+                        GroupChatActivationStrategy.entries.forEach { strategy ->
                             FilterChip(
                                 selected = state.activationStrategy == strategy,
                                 onClick = {
@@ -343,7 +348,7 @@ private fun GroupChatSettingsView(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        GroupChatSession.CharacterCardMode.entries.forEach { mode ->
+                        GroupChatCharacterCardMode.entries.forEach { mode ->
                             FilterChip(
                                 selected = state.characterCardMode == mode,
                                 onClick = {
@@ -352,7 +357,7 @@ private fun GroupChatSettingsView(
                                 label = {
                                     Text(
                                         stringResource(
-                                            if (mode == GroupChatSession.CharacterCardMode.Swap) {
+                                            if (mode == GroupChatCharacterCardMode.Swap) {
                                                 R.string.group_chat_card_mode_swap
                                             } else {
                                                 R.string.group_chat_card_mode_join
@@ -438,12 +443,12 @@ private fun GroupChatSettingsView(
             }
             item {
                 GroupSettingsSection(title = stringResource(R.string.group_chat_members)) {
-                    state.members.forEachIndexed { index, member ->
+                    members.forEachIndexed { index, member ->
                         GroupMemberSettingsRow(
                             member = member,
                             canMoveUp = index > 0,
-                            canMoveDown = index < state.members.lastIndex,
-                            canRemove = state.members.size > 2,
+                            canMoveDown = index < members.lastIndex,
+                            canRemove = members.size > 2,
                             onMoveUp = {
                                 emitIntent(GroupChatUiIntent.MoveMember(member.id, -1))
                             },
@@ -480,6 +485,7 @@ private fun GroupChatSettingsView(
                     )
                     GroupChatLorebookSelector(
                         groups = state.lorebookGroups,
+                        visibleGroups = state.visibleLorebookGroups,
                         query = state.lorebookQuery,
                         onQueryChange = {
                             emitIntent(GroupChatUiIntent.ChangeLorebookQuery(it))
@@ -668,7 +674,7 @@ private fun SettingsSwitch(
 
 @Composable
 private fun GroupHeader(
-    strategy: GroupChatSession.ActivationStrategy,
+    strategy: GroupChatActivationStrategy,
     generationState: GroupChatGenerationState,
     canContinue: Boolean,
     onContinue: () -> Unit
@@ -953,8 +959,8 @@ private fun MessageBubble(
     onToggleThinkBlock: (String) -> Unit,
     emitIntent: (GroupChatUiIntent) -> Unit
 ) {
-    val isUser = message.source == GroupChatMessage.Source.User
-    val isSystem = message.source == GroupChatMessage.Source.System
+    val isUser = message.source == GroupChatMessageSource.User
+    val isSystem = message.source == GroupChatMessageSource.System
     val accent = getMacaronColor(message.speakerName)
     var showActions by remember(message.id) { mutableStateOf(false) }
     Row(
@@ -1298,7 +1304,7 @@ private fun GroupMessageActions(
                 },
                 tint = iconColor
             )
-            if (message.source == GroupChatMessage.Source.Character) {
+            if (message.source == GroupChatMessageSource.Character) {
                 Icon(
                     imageVector = Icons.Rounded.Refresh,
                     contentDescription = stringResource(R.string.regenerate),
@@ -1312,7 +1318,7 @@ private fun GroupMessageActions(
                 imageVector = Icons.Rounded.Delete,
                 contentDescription = stringResource(R.string.delete),
                 modifier = actionModifier {
-                    emitIntent(GroupChatUiIntent.DeleteMessage(message.id))
+                    emitIntent(GroupChatUiIntent.DeleteMessageClick(message.id))
                 },
                 tint = iconColor
             )
@@ -1426,6 +1432,22 @@ private fun DialogSwitch(
             inspection = dialogState.inspection,
             onDismissRequest = { emitIntent(GroupChatUiIntent.DismissDialog) }
         )
+        is GroupChatDialogState.DeleteMessageConfirm -> AlertDialog(
+            onDismissRequest = { emitIntent(GroupChatUiIntent.DismissDialog) },
+            icon = { Icon(Icons.Rounded.Delete, contentDescription = null) },
+            title = { Text(stringResource(R.string.delete_message_title)) },
+            text = { Text(stringResource(R.string.delete_message_confirm)) },
+            confirmButton = {
+                Button(onClick = { emitIntent(GroupChatUiIntent.ConfirmDeleteMessage) }) {
+                    Text(stringResource(R.string.delete))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { emitIntent(GroupChatUiIntent.DismissDialog) }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
         is GroupChatDialogState.DeleteSessionConfirm -> AlertDialog(
             onDismissRequest = { emitIntent(GroupChatUiIntent.DismissDialog) },
             icon = { Icon(Icons.Rounded.Delete, contentDescription = null) },
@@ -1491,12 +1513,12 @@ private fun LoadStateOverlay(loadState: GroupChatLoadState) {
     }
 }
 
-private fun GroupChatSession.ActivationStrategy.titleRes(): Int {
+private fun GroupChatActivationStrategy.titleRes(): Int {
     return when (this) {
-        GroupChatSession.ActivationStrategy.Manual -> R.string.group_chat_strategy_manual
-        GroupChatSession.ActivationStrategy.Natural -> R.string.group_chat_strategy_natural
-        GroupChatSession.ActivationStrategy.List -> R.string.group_chat_strategy_list
-        GroupChatSession.ActivationStrategy.Pooled -> R.string.group_chat_strategy_pooled
+        GroupChatActivationStrategy.Manual -> R.string.group_chat_strategy_manual
+        GroupChatActivationStrategy.Natural -> R.string.group_chat_strategy_natural
+        GroupChatActivationStrategy.List -> R.string.group_chat_strategy_list
+        GroupChatActivationStrategy.Pooled -> R.string.group_chat_strategy_pooled
     }
 }
 
@@ -1508,10 +1530,15 @@ private fun GroupChatPreview() {
             uiState = GroupChatUiState.Normal(
                 sessionId = 1,
                 title = "Starlight Crew",
-                activationStrategy = GroupChatSession.ActivationStrategy.Natural,
                 members = previewMembers,
-                messages = previewMessages,
-                selectedSpeakerId = 1
+                activeActivationStrategy = GroupChatActivationStrategy.Natural,
+                conversationState = GroupChatConversationState(
+                    messages = previewMessages,
+                    selectedSpeakerId = 1
+                ),
+                settingsState = GroupChatSettingsState(
+                    activationStrategy = GroupChatActivationStrategy.Natural
+                )
             )
         )
     }
@@ -1526,21 +1553,21 @@ private val previewMembers = listOf(
 private val previewMessages = listOf(
     GroupChatMessageItem(
         id = 1,
-        source = GroupChatMessage.Source.User,
+        source = GroupChatMessageSource.User,
         speakerName = "You",
         content = "The signal is coming from the abandoned station.",
         time = "21:04"
     ),
     GroupChatMessageItem(
         id = 2,
-        source = GroupChatMessage.Source.Character,
+        source = GroupChatMessageSource.Character,
         speakerName = "Lyra",
         content = "Then we should approach quietly. Its navigation lights are still active.",
         time = "21:04"
     ),
     GroupChatMessageItem(
         id = 3,
-        source = GroupChatMessage.Source.Character,
+        source = GroupChatMessageSource.Character,
         speakerName = "Mina",
         content = "I will check the archive for its last registered crew.",
         time = "21:05"

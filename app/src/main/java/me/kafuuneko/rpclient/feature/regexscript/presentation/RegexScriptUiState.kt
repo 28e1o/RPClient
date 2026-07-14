@@ -23,6 +23,7 @@ sealed class RegexScriptUiState {
         val selectedCharacterId: Long? = null,
         val scripts: List<RegexScript> = emptyList(),
         val authorized: Boolean = true,
+        val transferInProgress: Boolean = false,
         val dialogState: RegexScriptDialogState = RegexScriptDialogState.None,
         val testInput: String = "",
         val testOutput: String = "",

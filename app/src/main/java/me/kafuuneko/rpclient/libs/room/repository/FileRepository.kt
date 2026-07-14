@@ -1,7 +1,10 @@
 package me.kafuuneko.rpclient.libs.room.repository
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
+import androidx.core.graphics.scale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import me.kafuuneko.rpclient.libs.room.AppDatabase
@@ -133,6 +136,59 @@ class FileRepository(
         if (file.exists()) file else null
     }
 
+    /** 在文件存储边界内解码图片，调用方无需接触私有物理路径。 */
+    suspend fun loadBitmap(uuid: String): Bitmap? = withContext(Dispatchers.IO) {
+        val file = getFile(uuid) ?: return@withContext null
+        BitmapFactory.decodeFile(file.absolutePath)
+    }
+
+    /**
+     * 按目标边界采样并缩放私有存储图片，避免列表缩略图先解码完整原图。
+     *
+     * 目标尺寸必须为正数且不超过 4096；损坏文件或无效图片边界返回 null。
+     */
+    suspend fun loadSampledBitmap(
+        uuid: String,
+        requestedWidthPx: Int,
+        requestedHeightPx: Int
+    ): Bitmap? = withContext(Dispatchers.IO) {
+        if (requestedWidthPx !in 1..MaxThumbnailDimension ||
+            requestedHeightPx !in 1..MaxThumbnailDimension
+        ) {
+            return@withContext null
+        }
+        val file = getFile(uuid) ?: return@withContext null
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(file.absolutePath, bounds)
+        val sourceWidth = bounds.outWidth.takeIf { it > 0 } ?: return@withContext null
+        val sourceHeight = bounds.outHeight.takeIf { it > 0 } ?: return@withContext null
+        val sampleSize = calculateInSampleSize(
+            sourceWidth,
+            sourceHeight,
+            requestedWidthPx,
+            requestedHeightPx
+        )
+        val decoded = BitmapFactory.decodeFile(
+            file.absolutePath,
+            BitmapFactory.Options().apply {
+                inSampleSize = sampleSize
+                inPreferredConfig = Bitmap.Config.ARGB_8888
+            }
+        ) ?: return@withContext null
+        if (decoded.width <= requestedWidthPx && decoded.height <= requestedHeightPx) {
+            return@withContext decoded
+        }
+        val scale = minOf(
+            requestedWidthPx.toDouble() / decoded.width.toDouble(),
+            requestedHeightPx.toDouble() / decoded.height.toDouble()
+        )
+        val targetWidth = (decoded.width * scale).toInt().coerceAtLeast(1)
+        val targetHeight = (decoded.height * scale).toInt().coerceAtLeast(1)
+        val scaled = decoded.scale(targetWidth, targetHeight, filter = true)
+        if (scaled !== decoded) decoded.recycle()
+        scaled
+    }
+
     /**
      * 根据 UUID 删除对应的文件记录。
      *
@@ -152,5 +208,28 @@ class FileRepository(
                 file.delete()
             }
         }
+    }
+
+    private fun calculateInSampleSize(
+        sourceWidth: Int,
+        sourceHeight: Int,
+        requestedWidth: Int,
+        requestedHeight: Int
+    ): Int {
+        val width = sourceWidth.toLong()
+        val height = sourceHeight.toLong()
+        var sampleSize = 1L
+        while (
+            sampleSize <= Int.MAX_VALUE / 2L &&
+            width / (sampleSize * 2L) >= requestedWidth.toLong() &&
+            height / (sampleSize * 2L) >= requestedHeight.toLong()
+        ) {
+            sampleSize *= 2L
+        }
+        return sampleSize.toInt().coerceAtLeast(1)
+    }
+
+    private companion object {
+        const val MaxThumbnailDimension = 4_096
     }
 }

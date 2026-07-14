@@ -12,15 +12,16 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.kafuuneko.rpclient.R
+import me.kafuuneko.rpclient.feature.toGenerationFailureMessage
 import me.kafuuneko.rpclient.feature.groupchat.model.GroupChatGenerationState
 import me.kafuuneko.rpclient.feature.groupchat.model.GroupChatAvailableCharacterItem
-import me.kafuuneko.rpclient.feature.groupchat.model.GroupChatLorebookEntryItem
-import me.kafuuneko.rpclient.feature.groupchat.model.GroupChatLorebookGroupItem
 import me.kafuuneko.rpclient.feature.groupchat.model.GroupChatMemberItem
 import me.kafuuneko.rpclient.feature.groupchat.model.GroupChatMessageItem
 import me.kafuuneko.rpclient.feature.groupchat.presentation.GroupChatDialogState
+import me.kafuuneko.rpclient.feature.groupchat.presentation.GroupChatConversationState
 import me.kafuuneko.rpclient.feature.groupchat.presentation.GroupChatLoadState
 import me.kafuuneko.rpclient.feature.groupchat.presentation.GroupChatPage
+import me.kafuuneko.rpclient.feature.groupchat.presentation.GroupChatSettingsState
 import me.kafuuneko.rpclient.feature.groupchat.presentation.GroupChatUiIntent
 import me.kafuuneko.rpclient.feature.groupchat.presentation.GroupChatUiState
 import me.kafuuneko.rpclient.feature.groupchat.presentation.GroupChatViewEvent
@@ -34,6 +35,13 @@ import me.kafuuneko.rpclient.libs.groupchat.GroupChatGenerationMode
 import me.kafuuneko.rpclient.libs.groupchat.GroupChatOutputSanitizer
 import me.kafuuneko.rpclient.libs.groupchat.GroupChatSpeakerSelector
 import me.kafuuneko.rpclient.libs.groupchat.GroupChatSummaryPromptBuilder
+import me.kafuuneko.rpclient.libs.groupchat.model.GroupChatActivationStrategy
+import me.kafuuneko.rpclient.libs.groupchat.model.GroupChatLorebookEntryItem
+import me.kafuuneko.rpclient.libs.groupchat.model.GroupChatLorebookGroupItem
+import me.kafuuneko.rpclient.libs.groupchat.model.toEntity
+import me.kafuuneko.rpclient.libs.groupchat.model.toGroupChatActivationStrategy
+import me.kafuuneko.rpclient.libs.groupchat.model.toGroupChatCharacterCardMode
+import me.kafuuneko.rpclient.libs.groupchat.model.toGroupChatMessageSource
 import me.kafuuneko.rpclient.libs.llm.model.LLMStreamEvent
 import me.kafuuneko.rpclient.libs.prompt.PromptInspection
 import me.kafuuneko.rpclient.libs.prompt.summarySafeContent
@@ -116,11 +124,11 @@ class GroupChatViewModel :
     private suspend fun onResume() {
         val uiState = getOrNull<GroupChatUiState.Normal>() ?: return
         refreshState(
-            inputDraft = uiState.inputDraft,
-            selectedSpeakerId = uiState.selectedSpeakerId,
-            generationState = uiState.generationState,
-            editingMessageId = uiState.editingMessageId,
-            editingMessageDraft = uiState.editingMessageDraft,
+            inputDraft = uiState.conversationState.inputDraft,
+            selectedSpeakerId = uiState.conversationState.selectedSpeakerId,
+            generationState = uiState.conversationState.generationState,
+            editingMessageId = uiState.conversationState.editingMessageId,
+            editingMessageDraft = uiState.conversationState.editingMessageDraft,
             dialogState = uiState.dialogState
         )
     }
@@ -162,24 +170,31 @@ class GroupChatViewModel :
         val uiState = getOrNull<GroupChatUiState.Normal>() ?: return
         refreshState(
             page = GroupChatPage.Conversation,
-            inputDraft = uiState.inputDraft,
-            selectedSpeakerId = uiState.selectedSpeakerId
+            inputDraft = uiState.conversationState.inputDraft,
+            selectedSpeakerId = uiState.conversationState.selectedSpeakerId
         )
     }
 
     @UiIntentObserver(GroupChatUiIntent.ChangeInputDraft::class)
     private fun onChangeInputDraft(intent: GroupChatUiIntent.ChangeInputDraft) {
         val uiState = getOrNull<GroupChatUiState.Normal>() ?: return
-        uiState.copy(inputDraft = intent.value).setup()
+        uiState.copy(
+            conversationState = uiState.conversationState.copy(inputDraft = intent.value)
+        ).setup()
     }
 
     @UiIntentObserver(GroupChatUiIntent.SelectSpeaker::class)
     private suspend fun onSelectSpeaker(intent: GroupChatUiIntent.SelectSpeaker) {
         val uiState = getOrNull<GroupChatUiState.Normal>() ?: return
-        val member = uiState.members.firstOrNull { it.id == intent.characterId } ?: return
-        if (uiState.activationStrategy == GroupChatSession.ActivationStrategy.Manual) {
+        val member = uiState.members
+            .firstOrNull { it.id == intent.characterId } ?: return
+        if (uiState.activeActivationStrategy == GroupChatActivationStrategy.Manual) {
             if (member.muted) return
-            uiState.copy(selectedSpeakerId = intent.characterId).setup()
+            uiState.copy(
+                conversationState = uiState.conversationState.copy(
+                    selectedSpeakerId = intent.characterId
+                )
+            ).setup()
             return
         }
         if (mGenerationJob?.isActive == true) return
@@ -196,7 +211,8 @@ class GroupChatViewModel :
     private suspend fun onToggleMemberMuted(intent: GroupChatUiIntent.ToggleMemberMuted) {
         val uiState = getOrNull<GroupChatUiState.Normal>() ?: return
         if (mGenerationJob?.isActive == true) return
-        val member = uiState.members.firstOrNull { it.id == intent.characterId } ?: return
+        val member = uiState.members
+            .firstOrNull { it.id == intent.characterId } ?: return
         if (!member.muted && uiState.members.count { !it.muted } <= 1) {
             AppViewEvent.PopupToastMessageByResId(
                 R.string.group_chat_keep_one_active_member
@@ -211,8 +227,8 @@ class GroupChatViewModel :
             )
         }
         refreshState(
-            inputDraft = uiState.inputDraft,
-            selectedSpeakerId = uiState.selectedSpeakerId
+            inputDraft = uiState.conversationState.inputDraft,
+            selectedSpeakerId = uiState.conversationState.selectedSpeakerId
                 ?.takeIf { it != member.id || member.muted }
         )
     }
@@ -227,7 +243,7 @@ class GroupChatViewModel :
             return
         }
         val sessionId = mSessionId ?: return
-        val rawInput = uiState.inputDraft.trim()
+        val rawInput = uiState.conversationState.inputDraft.trim()
         val initialData = withContext(Dispatchers.IO) {
             mGroupChatRepository.getGroupChatData(sessionId)
         } ?: return
@@ -246,7 +262,7 @@ class GroupChatViewModel :
             messages = initialData.messages,
             activationText = activationText,
             isUserInput = isUserInput,
-            manualCharacterId = uiState.selectedSpeakerId
+            manualCharacterId = uiState.conversationState.selectedSpeakerId
         )
         if (speakers.isEmpty()) {
             AppViewEvent.PopupToastMessageByResId(
@@ -267,7 +283,7 @@ class GroupChatViewModel :
         }
         refreshState(
             inputDraft = "",
-            selectedSpeakerId = uiState.selectedSpeakerId,
+            selectedSpeakerId = uiState.conversationState.selectedSpeakerId,
             generationState = GroupChatGenerationState.Generating(
                 speakerName = speakers.first().character.name,
                 current = 1,
@@ -279,6 +295,7 @@ class GroupChatViewModel :
 
     @UiIntentObserver(GroupChatUiIntent.StopGeneration::class)
     private suspend fun onStopGeneration() {
+        if (!isStateOf<GroupChatUiState.Normal>()) return
         val job = mGenerationJob ?: return
         if (!job.isActive) return
         job.cancel()
@@ -314,21 +331,25 @@ class GroupChatViewModel :
 
     @UiIntentObserver(GroupChatUiIntent.ChangeTitle::class)
     private fun onChangeTitle(intent: GroupChatUiIntent.ChangeTitle) {
+        if (!isStateOf<GroupChatUiState.Normal>()) return
         updateSettingsState { copy(titleDraft = intent.value) }
     }
 
     @UiIntentObserver(GroupChatUiIntent.ChangeScenario::class)
     private fun onChangeScenario(intent: GroupChatUiIntent.ChangeScenario) {
+        if (!isStateOf<GroupChatUiState.Normal>()) return
         updateSettingsState { copy(scenarioDraft = intent.value) }
     }
 
     @UiIntentObserver(GroupChatUiIntent.ChangeUserNote::class)
     private fun onChangeUserNote(intent: GroupChatUiIntent.ChangeUserNote) {
+        if (!isStateOf<GroupChatUiState.Normal>()) return
         updateSettingsState { copy(userNoteDraft = intent.value) }
     }
 
     @UiIntentObserver(GroupChatUiIntent.ChangeSummary::class)
     private fun onChangeSummary(intent: GroupChatUiIntent.ChangeSummary) {
+        if (!isStateOf<GroupChatUiState.Normal>()) return
         updateSettingsState { copy(summaryDraft = intent.value) }
     }
 
@@ -336,11 +357,13 @@ class GroupChatViewModel :
     private fun onToggleAutoSummaryPaused(
         intent: GroupChatUiIntent.ToggleAutoSummaryPaused
     ) {
+        if (!isStateOf<GroupChatUiState.Normal>()) return
         updateSettingsState { copy(autoSummaryPaused = intent.paused) }
     }
 
     @UiIntentObserver(GroupChatUiIntent.ChangeSystemPrompt::class)
     private fun onChangeSystemPrompt(intent: GroupChatUiIntent.ChangeSystemPrompt) {
+        if (!isStateOf<GroupChatUiState.Normal>()) return
         updateSettingsState { copy(systemPromptDraft = intent.value) }
     }
 
@@ -348,6 +371,7 @@ class GroupChatViewModel :
     private fun onChangeGroupNudgePrompt(
         intent: GroupChatUiIntent.ChangeGroupNudgePrompt
     ) {
+        if (!isStateOf<GroupChatUiState.Normal>()) return
         updateSettingsState { copy(groupNudgePromptDraft = intent.value) }
     }
 
@@ -355,6 +379,7 @@ class GroupChatViewModel :
     private fun onChangeNewGroupChatPrompt(
         intent: GroupChatUiIntent.ChangeNewGroupChatPrompt
     ) {
+        if (!isStateOf<GroupChatUiState.Normal>()) return
         updateSettingsState { copy(newGroupChatPromptDraft = intent.value) }
     }
 
@@ -362,6 +387,7 @@ class GroupChatViewModel :
     private fun onSelectActivationStrategy(
         intent: GroupChatUiIntent.SelectActivationStrategy
     ) {
+        if (!isStateOf<GroupChatUiState.Normal>()) return
         updateSettingsState { copy(activationStrategy = intent.strategy) }
     }
 
@@ -369,6 +395,7 @@ class GroupChatViewModel :
     private fun onSelectCharacterCardMode(
         intent: GroupChatUiIntent.SelectCharacterCardMode
     ) {
+        if (!isStateOf<GroupChatUiState.Normal>()) return
         updateSettingsState { copy(characterCardMode = intent.mode) }
     }
 
@@ -376,11 +403,13 @@ class GroupChatViewModel :
     private fun onToggleIncludeMutedCards(
         intent: GroupChatUiIntent.ToggleIncludeMutedCards
     ) {
+        if (!isStateOf<GroupChatUiState.Normal>()) return
         updateSettingsState { copy(includeMutedCards = intent.enabled) }
     }
 
     @UiIntentObserver(GroupChatUiIntent.ToggleAutoMode::class)
     private fun onToggleAutoMode(intent: GroupChatUiIntent.ToggleAutoMode) {
+        if (!isStateOf<GroupChatUiState.Normal>()) return
         updateSettingsState { copy(autoModeEnabled = intent.enabled) }
     }
 
@@ -388,6 +417,7 @@ class GroupChatViewModel :
     private fun onToggleTrimOtherSpeakers(
         intent: GroupChatUiIntent.ToggleTrimOtherSpeakers
     ) {
+        if (!isStateOf<GroupChatUiState.Normal>()) return
         updateSettingsState { copy(trimOtherSpeakers = intent.enabled) }
     }
 
@@ -395,12 +425,19 @@ class GroupChatViewModel :
     private fun onToggleAllowSelfResponses(
         intent: GroupChatUiIntent.ToggleAllowSelfResponses
     ) {
+        if (!isStateOf<GroupChatUiState.Normal>()) return
         updateSettingsState { copy(allowSelfResponses = intent.enabled) }
     }
 
     @UiIntentObserver(GroupChatUiIntent.ChangeLorebookQuery::class)
     private fun onChangeLorebookQuery(intent: GroupChatUiIntent.ChangeLorebookQuery) {
-        updateSettingsState { copy(lorebookQuery = intent.value) }
+        if (!isStateOf<GroupChatUiState.Normal>()) return
+        updateSettingsState {
+            copy(
+                lorebookQuery = intent.value,
+                visibleLorebookGroups = lorebookGroups.filterForQuery(intent.value)
+            )
+        }
     }
 
     @UiIntentObserver(GroupChatUiIntent.SaveSettings::class)
@@ -412,25 +449,25 @@ class GroupChatViewModel :
                 ?: return@withContext
             mGroupChatRepository.updateSession(
                 session.copy(
-                    title = uiState.titleDraft.trim().ifBlank { session.title },
-                    scenario = uiState.scenarioDraft.trim(),
-                    userNote = uiState.userNoteDraft.trim(),
-                    activationStrategy = uiState.activationStrategy,
-                    allowSelfResponses = uiState.allowSelfResponses,
-                    characterCardMode = uiState.characterCardMode,
-                    includeMutedCards = uiState.includeMutedCards,
-                    autoModeEnabled = uiState.autoModeEnabled,
-                    trimOtherSpeakers = uiState.trimOtherSpeakers,
-                    autoSummaryPaused = uiState.autoSummaryPaused,
-                    systemPromptOverride = uiState.systemPromptDraft.trim(),
-                    groupNudgePromptOverride = uiState.groupNudgePromptDraft.trim(),
-                    newGroupChatPromptOverride = uiState.newGroupChatPromptDraft.trim()
+                    title = uiState.settingsState.titleDraft.trim().ifBlank { session.title },
+                    scenario = uiState.settingsState.scenarioDraft.trim(),
+                    userNote = uiState.settingsState.userNoteDraft.trim(),
+                    activationStrategy = uiState.settingsState.activationStrategy.toEntity(),
+                    allowSelfResponses = uiState.settingsState.allowSelfResponses,
+                    characterCardMode = uiState.settingsState.characterCardMode.toEntity(),
+                    includeMutedCards = uiState.settingsState.includeMutedCards,
+                    autoModeEnabled = uiState.settingsState.autoModeEnabled,
+                    trimOtherSpeakers = uiState.settingsState.trimOtherSpeakers,
+                    autoSummaryPaused = uiState.settingsState.autoSummaryPaused,
+                    systemPromptOverride = uiState.settingsState.systemPromptDraft.trim(),
+                    groupNudgePromptOverride = uiState.settingsState.groupNudgePromptDraft.trim(),
+                    newGroupChatPromptOverride = uiState.settingsState.newGroupChatPromptDraft.trim()
                 )
             )
-            if (uiState.summaryDraft != uiState.summaryDraft.trim()) {
+            if (uiState.settingsState.summaryDraft != uiState.settingsState.summaryDraft.trim()) {
                 mGroupChatRepository.updateCurrentSummary(
                     uiState.sessionId,
-                    uiState.summaryDraft.trim()
+                    uiState.settingsState.summaryDraft.trim()
                 )
             } else {
                 val currentSummary = mGroupChatRepository
@@ -438,10 +475,10 @@ class GroupChatViewModel :
                     ?.summary
                     ?.content
                     .orEmpty()
-                if (currentSummary != uiState.summaryDraft) {
+                if (currentSummary != uiState.settingsState.summaryDraft) {
                     mGroupChatRepository.updateCurrentSummary(
                         uiState.sessionId,
-                        uiState.summaryDraft
+                        uiState.settingsState.summaryDraft
                     )
                 }
             }
@@ -454,7 +491,7 @@ class GroupChatViewModel :
         intent: GroupChatUiIntent.ToggleLorebookEntry
     ) {
         val uiState = getOrNull<GroupChatUiState.Normal>() ?: return
-        val enabledIds = uiState.lorebookGroups
+        val enabledIds = uiState.settingsState.lorebookGroups
             .flatMap { it.entries }
             .filter { it.enabled }
             .map { it.id }
@@ -473,13 +510,13 @@ class GroupChatViewModel :
     /** 切换当前群聊会话中一本世界书的全部条目。 */
     private suspend fun onToggleLorebook(intent: GroupChatUiIntent.ToggleLorebook) {
         val uiState = getOrNull<GroupChatUiState.Normal>() ?: return
-        val entryIds = uiState.lorebookGroups
+        val entryIds = uiState.settingsState.lorebookGroups
             .firstOrNull { it.lorebookId == intent.lorebookId }
             ?.entries
             ?.mapTo(mutableSetOf()) { it.id }
             .orEmpty()
         if (entryIds.isEmpty()) return
-        val enabledIds = uiState.lorebookGroups
+        val enabledIds = uiState.settingsState.lorebookGroups
             .flatMap { it.entries }
             .filter { it.enabled }
             .mapTo(mutableSetOf()) { it.id }
@@ -510,9 +547,7 @@ class GroupChatViewModel :
                 mGroupChatRepository.removeMember(uiState.sessionId, intent.characterId)
             }
         }.onFailure {
-            AppViewEvent.PopupToastMessage(
-                it.message ?: mContext.getString(R.string.group_chat_select_two_characters)
-            ).tryEmit()
+            AppViewEvent.PopupToastMessageByResId(R.string.group_chat_select_two_characters).tryEmit()
         }
         refreshState(page = uiState.page)
     }
@@ -534,7 +569,8 @@ class GroupChatViewModel :
     private suspend fun onStartEditMessage(intent: GroupChatUiIntent.StartEditMessage) {
         val uiState = getOrNull<GroupChatUiState.Normal>() ?: return
         if (mGenerationJob?.isActive == true) return
-        val message = uiState.messages.firstOrNull { it.id == intent.messageId } ?: return
+        val message = uiState.conversationState.messages
+            .firstOrNull { it.id == intent.messageId } ?: return
         val rawContent = withContext(Dispatchers.IO) {
             mGroupChatRepository.getGroupChatData(uiState.sessionId)
                 ?.messages
@@ -542,15 +578,18 @@ class GroupChatViewModel :
                 ?.content
         } ?: return
         uiState.copy(
-            editingMessageId = message.id,
-            editingMessageDraft = rawContent
+            conversationState = uiState.conversationState.copy(
+                editingMessageId = message.id,
+                editingMessageDraft = rawContent
+            )
         ).setup()
     }
 
     @UiIntentObserver(GroupChatUiIntent.CopyMessage::class)
     private suspend fun onCopyMessage(intent: GroupChatUiIntent.CopyMessage) {
         val uiState = getOrNull<GroupChatUiState.Normal>() ?: return
-        val message = uiState.messages.firstOrNull { it.id == intent.messageId } ?: return
+        val message = uiState.conversationState.messages
+            .firstOrNull { it.id == intent.messageId } ?: return
         if (message.content.isBlank()) return
         GroupChatViewEvent.CopyText(message.content).emit()
     }
@@ -558,13 +597,15 @@ class GroupChatViewModel :
     @UiIntentObserver(GroupChatUiIntent.ToggleThinkBlock::class)
     private fun onToggleThinkBlock(intent: GroupChatUiIntent.ToggleThinkBlock) {
         val uiState = getOrNull<GroupChatUiState.Normal>() ?: return
-        val ids = uiState.expandedThinkBlockIds
+        val ids = uiState.conversationState.expandedThinkBlockIds
         uiState.copy(
-            expandedThinkBlockIds = if (intent.blockId in ids) {
-                ids - intent.blockId
-            } else {
-                ids + intent.blockId
-            }
+            conversationState = uiState.conversationState.copy(
+                expandedThinkBlockIds = if (intent.blockId in ids) {
+                    ids - intent.blockId
+                } else {
+                    ids + intent.blockId
+                }
+            )
         ).setup()
     }
 
@@ -573,15 +614,19 @@ class GroupChatViewModel :
         intent: GroupChatUiIntent.ChangeEditingMessageDraft
     ) {
         val uiState = getOrNull<GroupChatUiState.Normal>() ?: return
-        if (uiState.editingMessageId == null) return
-        uiState.copy(editingMessageDraft = intent.value).setup()
+        if (uiState.conversationState.editingMessageId == null) return
+        uiState.copy(
+            conversationState = uiState.conversationState.copy(
+                editingMessageDraft = intent.value
+            )
+        ).setup()
     }
 
     @UiIntentObserver(GroupChatUiIntent.SaveEditingMessage::class)
     private suspend fun onSaveEditingMessage() {
         val uiState = getOrNull<GroupChatUiState.Normal>() ?: return
-        val messageId = uiState.editingMessageId ?: return
-        if (uiState.editingMessageDraft.isBlank()) return
+        val messageId = uiState.conversationState.editingMessageId ?: return
+        if (uiState.conversationState.editingMessageDraft.isBlank()) return
         withContext(Dispatchers.IO) {
             val data = mGroupChatRepository.getGroupChatData(uiState.sessionId)
                 ?: return@withContext
@@ -590,16 +635,17 @@ class GroupChatViewModel :
             val content = when (message.source) {
                 GroupChatMessage.Source.User -> applyUserRegex(
                     data,
-                    uiState.editingMessageDraft.trim(),
+                    uiState.conversationState.editingMessageDraft.trim(),
                     isEdit = true
                 )
                 GroupChatMessage.Source.Character -> applyAiRegex(
                     data,
-                    uiState.editingMessageDraft.trim(),
+                    uiState.conversationState.editingMessageDraft.trim(),
                     message.speakerNameSnapshot,
                     isEdit = true
                 )
-                GroupChatMessage.Source.System -> uiState.editingMessageDraft.trim()
+                GroupChatMessage.Source.System ->
+                    uiState.conversationState.editingMessageDraft.trim()
             }
             mGroupChatRepository.updateMessageContent(
                 messageId,
@@ -612,18 +658,37 @@ class GroupChatViewModel :
     @UiIntentObserver(GroupChatUiIntent.CancelEditingMessage::class)
     private fun onCancelEditingMessage() {
         val uiState = getOrNull<GroupChatUiState.Normal>() ?: return
-        uiState.copy(editingMessageId = null, editingMessageDraft = "").setup()
+        uiState.copy(
+            conversationState = uiState.conversationState.copy(
+                editingMessageId = null,
+                editingMessageDraft = ""
+            )
+        ).setup()
     }
 
-    @UiIntentObserver(GroupChatUiIntent.DeleteMessage::class)
-    private suspend fun onDeleteMessage(intent: GroupChatUiIntent.DeleteMessage) {
+    @UiIntentObserver(GroupChatUiIntent.DeleteMessageClick::class)
+    private fun onDeleteMessageClick(intent: GroupChatUiIntent.DeleteMessageClick) {
         val uiState = getOrNull<GroupChatUiState.Normal>() ?: return
         if (mGenerationJob?.isActive == true) return
-        if (uiState.messages.none { it.id == intent.messageId }) return
+        if (uiState.conversationState.messages.none { it.id == intent.messageId }) return
+        uiState.copy(
+            dialogState = GroupChatDialogState.DeleteMessageConfirm(intent.messageId)
+        ).setup()
+    }
+
+    @UiIntentObserver(GroupChatUiIntent.ConfirmDeleteMessage::class)
+    private suspend fun onConfirmDeleteMessage() {
+        val uiState = getOrNull<GroupChatUiState.Normal>() ?: return
+        val dialog = uiState.dialogState as? GroupChatDialogState.DeleteMessageConfirm ?: return
+        if (mGenerationJob?.isActive == true) return
         withContext(Dispatchers.IO) {
-            mGroupChatRepository.deleteMessage(intent.messageId)
+            mGroupChatRepository.deleteMessage(dialog.messageId)
         }
-        refreshState(editingMessageId = null, editingMessageDraft = "")
+        refreshState(
+            editingMessageId = null,
+            editingMessageDraft = "",
+            dialogState = GroupChatDialogState.None
+        )
     }
 
     @UiIntentObserver(GroupChatUiIntent.RegenerateMessage::class)
@@ -682,16 +747,16 @@ class GroupChatViewModel :
                     generationMode = GroupChatGenerationMode.Continue
                 )
                 refreshState(generationState = GroupChatGenerationState.Idle)
-            }.onFailure {
-                if (it is CancellationException) return@onFailure
+            }.onFailure { throwable ->
+                val message = throwable.toGenerationFailureMessage(
+                    mContext,
+                    R.string.continue_generation_failed
+                ) ?: return@onFailure
                 persistOrDeleteStreamingMessage()
                 refreshState(
-                    generationState = GroupChatGenerationState.Failed(
-                        it.message ?: mContext.getString(
-                            R.string.continue_generation_failed
-                        )
-                    )
+                    generationState = GroupChatGenerationState.Failed(message)
                 )
+                AppViewEvent.PopupToastMessage(message).tryEmit()
             }
         }
     }
@@ -775,16 +840,15 @@ class GroupChatViewModel :
                 maybeAutoSummarize(sessionId)
                 refreshState(generationState = GroupChatGenerationState.Idle)
             }.onFailure { throwable ->
-                if (throwable is CancellationException) return@onFailure
+                val message = throwable.toGenerationFailureMessage(
+                    mContext,
+                    R.string.generation_failed
+                ) ?: return@onFailure
                 persistOrDeleteStreamingMessage()
                 refreshState(
-                    generationState = GroupChatGenerationState.Failed(
-                        throwable.message ?: mContext.getString(R.string.generation_failed)
-                    )
+                    generationState = GroupChatGenerationState.Failed(message)
                 )
-                AppViewEvent.PopupToastMessage(
-                    throwable.message ?: mContext.getString(R.string.generation_failed)
-                ).tryEmit()
+                AppViewEvent.PopupToastMessage(message).tryEmit()
             }
         }
     }
@@ -916,17 +980,19 @@ class GroupChatViewModel :
             macros = mStreamingRegexMacros
         ).text
         uiState.copy(
-            messages = uiState.messages.map {
-                if (it.id == messageId) {
-                    it.copy(
-                        content = displayContent,
-                        parts = displayContent.toMessageContentParts(it.id.toString()),
-                        isStreaming = true
-                    )
-                } else {
-                    it
+            conversationState = uiState.conversationState.copy(
+                messages = uiState.conversationState.messages.map {
+                    if (it.id == messageId) {
+                        it.copy(
+                            content = displayContent,
+                            parts = displayContent.toMessageContentParts(it.id.toString()),
+                            isStreaming = true
+                        )
+                    } else {
+                        it
+                    }
                 }
-            }
+            )
         ).setup()
     }
 
@@ -1002,12 +1068,13 @@ class GroupChatViewModel :
             if (showToast) {
                 AppViewEvent.PopupToastMessageByResId(R.string.summary_updated).tryEmit()
             }
-        }.onFailure {
-            if (it is CancellationException) throw it
+        }.onFailure { throwable ->
+            val message = throwable.toGenerationFailureMessage(
+                mContext,
+                R.string.summary_failed
+            ) ?: throw throwable
             if (showToast) {
-                AppViewEvent.PopupToastMessage(
-                    it.message ?: mContext.getString(R.string.summary_failed)
-                ).tryEmit()
+                AppViewEvent.PopupToastMessage(message).tryEmit()
             }
         }
     }
@@ -1059,19 +1126,21 @@ class GroupChatViewModel :
         page: GroupChatPage =
             getOrNull<GroupChatUiState.Normal>()?.page ?: GroupChatPage.Conversation,
         inputDraft: String =
-            getOrNull<GroupChatUiState.Normal>()?.inputDraft.orEmpty(),
+            getOrNull<GroupChatUiState.Normal>()?.conversationState?.inputDraft.orEmpty(),
         selectedSpeakerId: Long? =
-            getOrNull<GroupChatUiState.Normal>()?.selectedSpeakerId,
+            getOrNull<GroupChatUiState.Normal>()?.conversationState?.selectedSpeakerId,
         lorebookQuery: String =
-            getOrNull<GroupChatUiState.Normal>()?.lorebookQuery.orEmpty(),
+            getOrNull<GroupChatUiState.Normal>()?.settingsState?.lorebookQuery.orEmpty(),
         generationState: GroupChatGenerationState =
-            getOrNull<GroupChatUiState.Normal>()?.generationState ?: GroupChatGenerationState.Idle,
+            getOrNull<GroupChatUiState.Normal>()?.conversationState?.generationState
+                ?: GroupChatGenerationState.Idle,
         expandedThinkBlockIds: Set<String> =
-            getOrNull<GroupChatUiState.Normal>()?.expandedThinkBlockIds ?: emptySet(),
+            getOrNull<GroupChatUiState.Normal>()?.conversationState?.expandedThinkBlockIds
+                ?: emptySet(),
         editingMessageId: Long? =
-            getOrNull<GroupChatUiState.Normal>()?.editingMessageId,
+            getOrNull<GroupChatUiState.Normal>()?.conversationState?.editingMessageId,
         editingMessageDraft: String =
-            getOrNull<GroupChatUiState.Normal>()?.editingMessageDraft.orEmpty(),
+            getOrNull<GroupChatUiState.Normal>()?.conversationState?.editingMessageDraft.orEmpty(),
         dialogState: GroupChatDialogState =
             getOrNull<GroupChatUiState.Normal>()?.dialogState ?: GroupChatDialogState.None
     ) {
@@ -1160,33 +1229,42 @@ class GroupChatViewModel :
         return GroupChatUiState.Normal(
             sessionId = sessionId,
             title = data.session.title,
-            page = page,
-            activationStrategy = data.session.activationStrategy,
-            characterCardMode = data.session.characterCardMode,
-            allowSelfResponses = data.session.allowSelfResponses,
-            includeMutedCards = data.session.includeMutedCards,
-            autoModeEnabled = data.session.autoModeEnabled,
-            trimOtherSpeakers = data.session.trimOtherSpeakers,
-            scenarioDraft = data.session.scenario,
-            userNoteDraft = data.session.userNote,
-            summaryDraft = data.summary?.content.orEmpty(),
-            autoSummaryPaused = data.session.autoSummaryPaused,
-            systemPromptDraft = data.session.systemPromptOverride,
-            groupNudgePromptDraft = data.session.groupNudgePromptOverride,
-            newGroupChatPromptDraft = data.session.newGroupChatPromptOverride,
-            titleDraft = data.session.title,
             members = members,
-            availableCharacters = availableCharacters,
-            lorebookGroups = lorebookGroups,
-            lorebookQuery = lorebookQuery,
-            messages = data.toMessageItems(),
-            selectedSpeakerId = effectiveSpeakerId,
-            inputDraft = inputDraft,
-            generationState = generationState,
+            activeActivationStrategy = data.session.activationStrategy
+                .toGroupChatActivationStrategy(),
+            page = page,
+            conversationState = GroupChatConversationState(
+                messages = data.toMessageItems(),
+                selectedSpeakerId = effectiveSpeakerId,
+                inputDraft = inputDraft,
+                generationState = generationState,
+                expandedThinkBlockIds = expandedThinkBlockIds,
+                editingMessageId = editingMessageId,
+                editingMessageDraft = editingMessageDraft
+            ),
+            settingsState = GroupChatSettingsState(
+                activationStrategy = data.session.activationStrategy
+                    .toGroupChatActivationStrategy(),
+                characterCardMode = data.session.characterCardMode
+                    .toGroupChatCharacterCardMode(),
+                allowSelfResponses = data.session.allowSelfResponses,
+                includeMutedCards = data.session.includeMutedCards,
+                autoModeEnabled = data.session.autoModeEnabled,
+                trimOtherSpeakers = data.session.trimOtherSpeakers,
+                scenarioDraft = data.session.scenario,
+                userNoteDraft = data.session.userNote,
+                summaryDraft = data.summary?.content.orEmpty(),
+                autoSummaryPaused = data.session.autoSummaryPaused,
+                systemPromptDraft = data.session.systemPromptOverride,
+                groupNudgePromptDraft = data.session.groupNudgePromptOverride,
+                newGroupChatPromptDraft = data.session.newGroupChatPromptOverride,
+                titleDraft = data.session.title,
+                availableCharacters = availableCharacters,
+                lorebookGroups = lorebookGroups,
+                visibleLorebookGroups = lorebookGroups.filterForQuery(lorebookQuery),
+                lorebookQuery = lorebookQuery
+            ),
             hasPromptInspection = mLastPromptInspection != null,
-            expandedThinkBlockIds = expandedThinkBlockIds,
-            editingMessageId = editingMessageId,
-            editingMessageDraft = editingMessageDraft,
             dialogState = dialogState
         )
     }
@@ -1229,7 +1307,7 @@ class GroupChatViewModel :
             }
             GroupChatMessageItem(
                 id = message.id,
-                source = message.source,
+                source = message.source.toGroupChatMessageSource(),
                 speakerName = message.speakerNameSnapshot,
                 content = displayContent,
                 parts = displayContent.toMessageContentParts(message.id.toString()),
@@ -1318,11 +1396,35 @@ class GroupChatViewModel :
 
     /** 仅允许在设置页更新表单草稿，保持页面状态边界明确。 */
     private inline fun updateSettingsState(
-        transform: GroupChatUiState.Normal.() -> GroupChatUiState.Normal
+        transform: GroupChatSettingsState.() -> GroupChatSettingsState
     ) {
         val uiState = getOrNull<GroupChatUiState.Normal>() ?: return
         if (uiState.page != GroupChatPage.Settings) return
-        uiState.transform().setup()
+        uiState.copy(settingsState = uiState.settingsState.transform()).setup()
+    }
+
+    private fun List<GroupChatLorebookGroupItem>.filterForQuery(
+        query: String
+    ): List<GroupChatLorebookGroupItem> {
+        val normalizedQuery = query.trim()
+        if (normalizedQuery.isBlank()) return this
+        return mapNotNull { group ->
+            val groupMatches = group.lorebookName.contains(normalizedQuery, ignoreCase = true)
+            val matchingEntries = group.entries.filter { entry ->
+                entry.lorebookName.contains(normalizedQuery, ignoreCase = true) ||
+                    entry.name.contains(normalizedQuery, ignoreCase = true) ||
+                    entry.content.contains(normalizedQuery, ignoreCase = true) ||
+                    entry.keywords.any { it.contains(normalizedQuery, ignoreCase = true) } ||
+                    entry.secondaryKeywords.any {
+                        it.contains(normalizedQuery, ignoreCase = true)
+                    }
+            }
+            when {
+                groupMatches -> group
+                matchingEntries.isNotEmpty() -> group.copy(entries = matchingEntries)
+                else -> null
+            }
+        }
     }
 
     private data class GroupLorebookContext(

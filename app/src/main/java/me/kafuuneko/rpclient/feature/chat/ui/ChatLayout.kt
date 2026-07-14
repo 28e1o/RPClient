@@ -1,6 +1,5 @@
 package me.kafuuneko.rpclient.feature.chat.ui
 
-import android.graphics.BitmapFactory
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -78,7 +77,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -101,6 +100,8 @@ import me.kafuuneko.rpclient.feature.chat.presentation.ChatLoadState
 import me.kafuuneko.rpclient.feature.chat.presentation.ChatPage
 import me.kafuuneko.rpclient.feature.chat.presentation.ChatUiIntent
 import me.kafuuneko.rpclient.feature.chat.presentation.ChatUiState
+import me.kafuuneko.rpclient.feature.chat.presentation.ChatConversationState
+import me.kafuuneko.rpclient.feature.chat.presentation.ChatLorebookState
 import me.kafuuneko.rpclient.libs.utils.toggle
 import me.kafuuneko.rpclient.ui.theme.AppTheme
 import me.kafuuneko.rpclient.ui.theme.DefaultCharacterAccentColor
@@ -134,7 +135,12 @@ fun ChatLayout(
         is ChatUiState.Normal -> {
             when (uiState.page) {
                 ChatPage.Conversation -> ChatNormal(uiState, emit)
-                ChatPage.Settings -> ChatSettingsPage(uiState, emit)
+                ChatPage.Settings -> ChatSettingsPage(
+                    session = uiState.session,
+                    lorebookState = uiState.lorebookState,
+                    loadState = uiState.loadState,
+                    emit = emit
+                )
             }
             DialogSwitch(uiState.dialogState, emit)
         }
@@ -170,14 +176,14 @@ private fun ChatNormal(
     }
 
     LaunchedEffect(
-        state.messages.size,
-        state.messages.lastOrNull()?.content,
-        state.expandedThinkBlockIds
+        state.conversationState.messages.size,
+        state.conversationState.messages.lastOrNull()?.content,
+        state.conversationState.expandedThinkBlockIds
     ) {
-        if (state.messages.isNotEmpty()) {
+        if (state.conversationState.messages.isNotEmpty()) {
             if (isFirstLoad || shouldFollowBottom) {
                 // Header + messages + the trailing anchor.
-                listState.scrollToItem(state.messages.size + 1)
+                listState.scrollToItem(state.conversationState.messages.size + 1)
                 isFirstLoad = false
             }
         }
@@ -189,15 +195,22 @@ private fun ChatNormal(
             .background(MaterialTheme.colorScheme.background)
     ) {
         CustomChatTopBar(
-            state = state,
+            session = state.session,
+            character = state.character,
+            lorebookState = state.lorebookState,
+            generationState = state.conversationState.generationState,
+            loadState = state.loadState,
+            streamEnabled = state.streamEnabled,
+            hasPromptInspection = state.hasPromptInspection,
             onBack = { ChatUiIntent.Back.emit() },
             emit = emit
         )
-        if (state.isSessionLoreExpanded) {
+        if (state.lorebookState.isExpanded) {
             SessionLorePanel(
                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                groups = state.lorebookGroups,
-                query = state.lorebookQuery,
+                groups = state.lorebookState.groups,
+                visibleGroups = state.lorebookState.visibleGroups,
+                query = state.lorebookState.query,
                 emit = emit
             )
         }
@@ -210,19 +223,25 @@ private fun ChatNormal(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item(key = "conversation-start") {
-                ConversationStartHeader(state = state, emit = emit)
+                ConversationStartHeader(
+                    session = state.session,
+                    character = state.character,
+                    lorebookState = state.lorebookState,
+                    streamEnabled = state.streamEnabled,
+                    emit = emit
+                )
             }
             itemsIndexed(
-                items = state.messages,
+                items = state.conversationState.messages,
                 key = { _, message -> message.id },
                 contentType = { _, message -> message.role }
             ) { index, message ->
                 MessageBubble(
                     message = message,
                     character = state.character,
-                    expandedThinkBlockIds = state.expandedThinkBlockIds,
-                    editing = message.id == state.editingMessageId,
-                    editingDraft = state.editingMessageDraft,
+                    expandedThinkBlockIds = state.conversationState.expandedThinkBlockIds,
+                    editing = message.id == state.conversationState.editingMessageId,
+                    editingDraft = state.conversationState.editingMessageDraft,
                     isFirstMessage = index == 0,
                     emit = emit
                 )
@@ -232,9 +251,11 @@ private fun ChatNormal(
             }
         }
         ChatInputBar(
-            draft = state.inputDraft,
-            isGenerating = state.generationState.isGenerating(),
-            hasAssistantMessage = state.messages.any { it.role == MessageRole.Assistant },
+            draft = state.conversationState.inputDraft,
+            isGenerating = state.conversationState.generationState.isGenerating(),
+            hasAssistantMessage = state.conversationState.messages.any {
+                it.role == MessageRole.Assistant
+            },
             emit = emit
         )
     }
@@ -242,7 +263,13 @@ private fun ChatNormal(
 
 @Composable
 private fun CustomChatTopBar(
-    state: ChatUiState.Normal,
+    session: ChatSessionItem,
+    character: ChatCharacterItem,
+    lorebookState: ChatLorebookState,
+    generationState: ChatGenerationState,
+    loadState: ChatLoadState,
+    streamEnabled: Boolean,
+    hasPromptInspection: Boolean,
     onBack: () -> Unit,
     emit: ChatUiIntent.() -> Unit
 ) {
@@ -268,9 +295,9 @@ private fun CustomChatTopBar(
             }
 
             AvatarPreview(
-                avatarText = state.character.avatarText,
-                avatarColor = state.character.accentColor,
-                imagePath = state.character.avatarFilePath,
+                avatarText = character.avatarText,
+                avatarColor = character.accentColor,
+                image = character.avatarImage,
                 size = 36
             )
 
@@ -278,7 +305,7 @@ private fun CustomChatTopBar(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = state.character.name,
+                    text = character.name,
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -286,8 +313,8 @@ private fun CustomChatTopBar(
                 )
                 Text(
                     text = buildString {
-                        append(state.session.title)
-                        val status = state.statusText()
+                        append(session.title)
+                        val status = chatStatusText(loadState, generationState, streamEnabled)
                         if (status.isNotBlank()) {
                             append(" • ")
                             append(status)
@@ -302,12 +329,12 @@ private fun CustomChatTopBar(
 
             IconButton(
                 onClick = { ChatUiIntent.OpenPromptInspector.emit() },
-                enabled = state.hasPromptInspection
+                enabled = hasPromptInspection
             ) {
                 Icon(
                     Icons.Rounded.Info,
                     contentDescription = stringResource(R.string.prompt_inspector_title),
-                    tint = if (state.hasPromptInspection) {
+                    tint = if (hasPromptInspection) {
                         MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
                     } else {
                         MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
@@ -318,7 +345,7 @@ private fun CustomChatTopBar(
                 Icon(
                     Icons.Rounded.Book,
                     contentDescription = stringResource(R.string.session_world_book),
-                    tint = if (state.isSessionLoreExpanded) MaterialTheme.colorScheme.primary
+                    tint = if (lorebookState.isExpanded) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
                 )
             }
@@ -335,11 +362,14 @@ private fun CustomChatTopBar(
 
 @Composable
 private fun ConversationStartHeader(
-    state: ChatUiState.Normal,
+    session: ChatSessionItem,
+    character: ChatCharacterItem,
+    lorebookState: ChatLorebookState,
+    streamEnabled: Boolean,
     emit: ChatUiIntent.() -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val enabledLorebookCount = state.lorebookGroups.sumOf { it.enabledCount }
+    val enabledLorebookCount = lorebookState.groups.sumOf { it.enabledCount }
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -357,21 +387,21 @@ private fun ConversationStartHeader(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             AvatarPreview(
-                avatarText = state.character.avatarText,
-                avatarColor = state.character.accentColor,
-                imagePath = state.character.avatarFilePath,
+                avatarText = character.avatarText,
+                avatarColor = character.accentColor,
+                image = character.avatarImage,
                 size = 64
             )
 
             Text(
-                text = state.character.name,
+                text = character.name,
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.onSurface
             )
 
-            if (state.character.description.isNotBlank()) {
+            if (character.description.isNotBlank()) {
                 Text(
-                    text = state.character.description,
+                    text = character.description,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                     textAlign = TextAlign.Center,
@@ -387,10 +417,10 @@ private fun ConversationStartHeader(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                RpMetaPill(stringResource(R.string.messages_count, state.session.messageCount))
+                RpMetaPill(stringResource(R.string.messages_count, session.messageCount))
                 RpMetaPill(stringResource(R.string.world_books_enabled, enabledLorebookCount))
                 RpMetaPill(
-                    if (state.streamEnabled) stringResource(R.string.streaming_on)
+                    if (streamEnabled) stringResource(R.string.streaming_on)
                     else stringResource(R.string.streaming_off)
                 )
             }
@@ -410,11 +440,11 @@ private fun ConversationStartHeader(
 private fun SessionLorePanel(
     modifier: Modifier = Modifier,
     groups: List<ChatLorebookGroupItem>,
+    visibleGroups: List<ChatLorebookGroupItem>,
     query: String,
     emit: ChatUiIntent.() -> Unit
 ) {
     var expandedLorebookIds by remember { mutableStateOf(emptySet<Long>()) }
-    val filteredGroups = groups.filterForQuery(query)
     val isSearching = query.isNotBlank()
 
     Surface(
@@ -452,7 +482,7 @@ private fun SessionLorePanel(
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
-            if (groups.isNotEmpty() && filteredGroups.isEmpty()) {
+            if (groups.isNotEmpty() && visibleGroups.isEmpty()) {
                 Text(
                     text = stringResource(R.string.no_world_book_search_results),
                     style = MaterialTheme.typography.bodyMedium
@@ -462,7 +492,7 @@ private fun SessionLorePanel(
                 modifier = Modifier.heightIn(max = 360.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(filteredGroups, key = { it.lorebookId }) { group ->
+                items(visibleGroups, key = { it.lorebookId }) { group ->
                     val expanded = isSearching || group.lorebookId in expandedLorebookIds
                     SessionLoreGroup(
                         group = group,
@@ -593,28 +623,6 @@ private fun LorebookSearchField(
     )
 }
 
-private fun List<ChatLorebookGroupItem>.filterForQuery(query: String): List<ChatLorebookGroupItem> {
-    val normalizedQuery = query.trim()
-    if (normalizedQuery.isBlank()) return this
-    return mapNotNull { group ->
-        val groupMatches = group.lorebookName.contains(normalizedQuery, ignoreCase = true)
-        val matchingEntries = group.entries.filter { it.matchesQuery(normalizedQuery) }
-        when {
-            groupMatches -> group
-            matchingEntries.isNotEmpty() -> group.copy(entries = matchingEntries)
-            else -> null
-        }
-    }
-}
-
-private fun ChatLorebookEntryItem.matchesQuery(query: String): Boolean {
-    return lorebookName.contains(query, ignoreCase = true) ||
-            name.contains(query, ignoreCase = true) ||
-            content.contains(query, ignoreCase = true) ||
-            keywords.any { it.contains(query, ignoreCase = true) } ||
-            secondaryKeywords.any { it.contains(query, ignoreCase = true) }
-}
-
 @Composable
 private fun MessageBubble(
     message: ChatMessageUiModel,
@@ -639,7 +647,7 @@ private fun MessageBubble(
                     1
                 ).uppercase(),
                 avatarColor = if (message.speaker == character.name) character.accentColor else NarratorAvatarColor,
-                imagePath = if (message.speaker == character.name) character.avatarFilePath else null,
+                image = if (message.speaker == character.name) character.avatarImage else null,
                 size = 32,
                 modifier = Modifier.padding(end = 8.dp, top = 4.dp)
             )
@@ -1093,7 +1101,9 @@ private fun ChatInputBar(
 
 @Composable
 private fun ChatSettingsPage(
-    state: ChatUiState.Normal,
+    session: ChatSessionItem,
+    lorebookState: ChatLorebookState,
+    loadState: ChatLoadState,
     emit: ChatUiIntent.() -> Unit
 ) {
     Column(
@@ -1142,21 +1152,21 @@ private fun ChatSettingsPage(
                         title = stringResource(R.string.delete_chat_title),
                         subtitle = stringResource(R.string.delete_chat_desc),
                         iconTint = MaterialTheme.colorScheme.error,
-                        enabled = state.loadState != ChatLoadState.Deleting
+                        enabled = loadState != ChatLoadState.Deleting
                     ) { ChatUiIntent.DeleteSessionClick.emit() }
                 }
             }
             item {
                 SettingsSection(title = stringResource(R.string.session)) {
                     SummaryPauseRow(
-                        paused = state.session.autoSummaryPaused,
+                        paused = session.autoSummaryPaused,
                         onPausedChange = {
                             ChatUiIntent.ToggleAutoSummaryPaused(it).emit()
                         }
                     )
                     AutoSaveTextField(
                         label = stringResource(R.string.title),
-                        value = state.session.title,
+                        value = session.title,
                         minLines = 1,
                         maxLines = 1,
                         singleLine = true,
@@ -1164,7 +1174,7 @@ private fun ChatSettingsPage(
                     )
                     AutoSaveTextField(
                         label = stringResource(R.string.current_summary),
-                        value = state.session.summarize,
+                        value = session.summarize,
                         placeholder = stringResource(R.string.no_summary_yet),
                         minLines = 3,
                         maxLines = 8,
@@ -1172,7 +1182,7 @@ private fun ChatSettingsPage(
                     )
                     AutoSaveTextField(
                         label = stringResource(R.string.user_note),
-                        value = state.session.userNote,
+                        value = session.userNote,
                         placeholder = stringResource(R.string.empty),
                         minLines = 3,
                         maxLines = 8,
@@ -1180,7 +1190,7 @@ private fun ChatSettingsPage(
                     )
                     AutoSaveTextField(
                         label = stringResource(R.string.user_display_name),
-                        value = state.session.userName,
+                        value = session.userName,
                         minLines = 1,
                         maxLines = 1,
                         singleLine = true,
@@ -1188,7 +1198,7 @@ private fun ChatSettingsPage(
                     )
                     AutoSaveTextField(
                         label = stringResource(R.string.user_persona_description),
-                        value = state.session.userDescription,
+                        value = session.userDescription,
                         placeholder = stringResource(R.string.empty),
                         minLines = 3,
                         maxLines = 8,
@@ -1196,7 +1206,7 @@ private fun ChatSettingsPage(
                     )
                     AutoSaveTextField(
                         label = stringResource(R.string.creator_notes),
-                        value = state.session.creatorNotes,
+                        value = session.creatorNotes,
                         placeholder = stringResource(R.string.using_character_default_or_empty),
                         minLines = 3,
                         maxLines = 8,
@@ -1212,8 +1222,9 @@ private fun ChatSettingsPage(
                         subtitle = stringResource(R.string.world_book_subtitle)
                     ) { ChatUiIntent.OpenWorldBookManager.emit() }
                     SessionLoreSettings(
-                        groups = state.lorebookGroups,
-                        query = state.lorebookQuery,
+                        groups = lorebookState.groups,
+                        visibleGroups = lorebookState.visibleGroups,
+                        query = lorebookState.query,
                         emit = emit
                     )
                 }
@@ -1246,11 +1257,11 @@ private fun SummaryPauseRow(
 @Composable
 private fun SessionLoreSettings(
     groups: List<ChatLorebookGroupItem>,
+    visibleGroups: List<ChatLorebookGroupItem>,
     query: String,
     emit: ChatUiIntent.() -> Unit
 ) {
     var expandedLorebookIds by remember { mutableStateOf(emptySet<Long>()) }
-    val filteredGroups = groups.filterForQuery(query)
     val isSearching = query.isNotBlank()
 
     if (groups.isEmpty()) {
@@ -1265,13 +1276,13 @@ private fun SessionLoreSettings(
         query = query,
         onQueryChange = { ChatUiIntent.ChangeLorebookQuery(it).emit() }
     )
-    if (filteredGroups.isEmpty()) {
+    if (visibleGroups.isEmpty()) {
         Text(
             text = stringResource(R.string.no_world_book_search_results),
             style = MaterialTheme.typography.bodyMedium
         )
     }
-    filteredGroups.forEach { group ->
+    visibleGroups.forEach { group ->
         val expanded = isSearching || group.lorebookId in expandedLorebookIds
         SessionLoreGroup(
             group = group,
@@ -1538,7 +1549,11 @@ private fun ChatGenerationState.label(streamEnabled: Boolean): String {
 }
 
 @Composable
-private fun ChatUiState.Normal.statusText(): String {
+private fun chatStatusText(
+    loadState: ChatLoadState,
+    generationState: ChatGenerationState,
+    streamEnabled: Boolean
+): String {
     return if (loadState == ChatLoadState.Saving) {
         stringResource(R.string.updating_summary)
     } else {
@@ -1576,41 +1591,45 @@ private fun ChatLayoutPreview() {
                     avatarText = "L",
                     accentColor = DefaultCharacterAccentColor
                 ),
-                messages = listOf(
-                    ChatMessageUiModel(
-                        id = "1",
-                        role = MessageRole.Assistant,
-                        speaker = "Lyra",
-                        content = "## Archive note\nThe rain kept **tapping** on the archive windows.\n\n- Index the file\n- Check `sealed` shelf",
-                        parts = listOf(MessageContentPart.Text("## Archive note\nThe rain kept **tapping** on the archive windows.\n\n- Index the file\n- Check `sealed` shelf")),
-                        time = "02:15",
-                        tokenCount = 12
-                    )
-                ),
-                lorebookGroups = listOf(
-                    ChatLorebookGroupItem(
-                        lorebookId = 1,
-                        lorebookName = "Fog Harbor",
-                        enabledCount = 1,
-                        totalCount = 1,
-                        entries = listOf(
-                            ChatLorebookEntryItem(
-                                1,
-                                1,
-                                "Fog Harbor",
-                                "Old District",
-                                listOf("rain"),
-                                emptyList(),
-                                false,
-                                0,
-                                0,
-                                "",
-                                true
-                            )
+                conversationState = ChatConversationState(
+                    messages = listOf(
+                        ChatMessageUiModel(
+                            id = "1",
+                            role = MessageRole.Assistant,
+                            speaker = "Lyra",
+                            content = "## Archive note\nThe rain kept **tapping** on the archive windows.\n\n- Index the file\n- Check `sealed` shelf",
+                            parts = listOf(MessageContentPart.Text("## Archive note\nThe rain kept **tapping** on the archive windows.\n\n- Index the file\n- Check `sealed` shelf")),
+                            time = "02:15",
+                            tokenCount = 12
                         )
                     )
                 ),
-                isSessionLoreExpanded = true,
+                lorebookState = ChatLorebookState(
+                    groups = listOf(
+                        ChatLorebookGroupItem(
+                            lorebookId = 1,
+                            lorebookName = "Fog Harbor",
+                            enabledCount = 1,
+                            totalCount = 1,
+                            entries = listOf(
+                                ChatLorebookEntryItem(
+                                    1,
+                                    1,
+                                    "Fog Harbor",
+                                    "Old District",
+                                    listOf("rain"),
+                                    emptyList(),
+                                    false,
+                                    0,
+                                    0,
+                                    "",
+                                    true
+                                )
+                            )
+                        )
+                    ),
+                    isExpanded = true
+                ),
                 streamEnabled = true
             ),
             emit = {}
@@ -1622,14 +1641,11 @@ private fun ChatLayoutPreview() {
 private fun AvatarPreview(
     avatarText: String,
     avatarColor: Color,
-    imagePath: String?,
+    image: ImageBitmap?,
     size: Int,
     modifier: Modifier = Modifier
 ) {
-    val bitmap = remember(imagePath) {
-        imagePath?.let { BitmapFactory.decodeFile(it) }
-    }
-    if (bitmap == null) {
+    if (image == null) {
         RpAvatar(
             text = avatarText,
             color = avatarColor,
@@ -1637,7 +1653,7 @@ private fun AvatarPreview(
         )
     } else {
         Image(
-            bitmap = bitmap.asImageBitmap(),
+            bitmap = image,
             contentDescription = null,
             modifier = modifier
                 .size(size.dp)

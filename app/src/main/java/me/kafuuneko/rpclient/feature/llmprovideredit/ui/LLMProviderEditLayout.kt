@@ -32,6 +32,10 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -41,6 +45,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import me.kafuuneko.rpclient.R
+import me.kafuuneko.rpclient.feature.llmprovideredit.model.CredentialEditMode
 import me.kafuuneko.rpclient.feature.llmprovideredit.model.LLMProviderEditForm
 import me.kafuuneko.rpclient.feature.llmprovideredit.presentation.LLMProviderEditDialogState
 import me.kafuuneko.rpclient.feature.llmprovideredit.presentation.LLMProviderEditLoadState
@@ -123,11 +128,13 @@ private fun BasicPanel(
         RpSectionHeader(title = stringResource(R.string.basic_info))
         FormTextField(stringResource(R.string.name), form.name) { LLMProviderEditUiIntent.ChangeName(it).emit() }
         FormTextField(stringResource(R.string.base_url), form.baseUrl) { LLMProviderEditUiIntent.ChangeBaseUrl(it).emit() }
-        FormTextField(
-            label = stringResource(R.string.api_key),
-            value = form.apiKey,
-            visualTransformation = if (form.apiKey.isBlank()) VisualTransformation.None else PasswordVisualTransformation(),
-            onChange = { LLMProviderEditUiIntent.ChangeApiKey(it).emit() }
+        CredentialControl(
+            title = stringResource(R.string.api_key),
+            hasExistingValue = form.hasExistingApiKey,
+            editMode = form.apiKeyEditMode,
+            onEdit = { LLMProviderEditUiIntent.ShowApiKeyEditor.emit() },
+            onClear = { LLMProviderEditUiIntent.ClearApiKey.emit() },
+            onKeepExisting = { LLMProviderEditUiIntent.KeepExistingApiKey.emit() }
         )
         FormTextField(stringResource(R.string.model_name), form.model) { LLMProviderEditUiIntent.ChangeModel(it).emit() }
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -168,12 +175,66 @@ private fun ProtocolPanel(
             label = { it.name },
             onSelect = { LLMProviderEditUiIntent.ChangeProtocol(it).emit() }
         )
-        FormTextField(
-            label = stringResource(R.string.custom_headers_json),
-            value = form.customHeadersJson,
-            minLines = 3,
-            onChange = { LLMProviderEditUiIntent.ChangeCustomHeadersJson(it).emit() }
+        CredentialControl(
+            title = stringResource(R.string.custom_headers_json),
+            hasExistingValue = form.hasExistingCustomHeaders,
+            editMode = form.customHeadersEditMode,
+            onEdit = { LLMProviderEditUiIntent.ShowCustomHeadersEditor.emit() },
+            onClear = { LLMProviderEditUiIntent.ClearCustomHeaders.emit() },
+            onKeepExisting = { LLMProviderEditUiIntent.KeepExistingCustomHeaders.emit() }
         )
+    }
+}
+
+@Composable
+private fun CredentialControl(
+    title: String,
+    hasExistingValue: Boolean,
+    editMode: CredentialEditMode,
+    onEdit: () -> Unit,
+    onClear: () -> Unit,
+    onKeepExisting: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(title, style = MaterialTheme.typography.titleSmall)
+        Text(
+            text = when (editMode) {
+                CredentialEditMode.KeepExisting -> stringResource(
+                    if (hasExistingValue) {
+                        R.string.credential_keep_existing
+                    } else {
+                        R.string.credential_not_set
+                    }
+                )
+                CredentialEditMode.Replace -> stringResource(R.string.credential_replace_on_save)
+                CredentialEditMode.Clear -> stringResource(R.string.credential_clear_on_save)
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.62f)
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = onEdit) {
+                Text(
+                    stringResource(
+                        if (hasExistingValue || editMode == CredentialEditMode.Replace) {
+                            R.string.credential_replace
+                        } else {
+                            R.string.credential_set
+                        }
+                    )
+                )
+            }
+            if (hasExistingValue) {
+                TextButton(onClick = onClear) {
+                    Text(stringResource(R.string.credential_clear))
+                }
+            }
+            if (editMode != CredentialEditMode.KeepExisting) {
+                TextButton(onClick = onKeepExisting) {
+                    Text(stringResource(R.string.credential_undo_change))
+                }
+            }
+        }
     }
 }
 
@@ -285,7 +346,7 @@ private fun TestPanel(
                         LLMProviderEditTestState.None -> stringResource(R.string.send_short_message)
                         LLMProviderEditTestState.Testing -> stringResource(R.string.testing)
                         is LLMProviderEditTestState.Success -> testState.message
-                        is LLMProviderEditTestState.Failed -> testState.message
+                        LLMProviderEditTestState.Failed -> stringResource(R.string.test_failed)
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.62f)
@@ -368,7 +429,74 @@ private fun DialogSwitch(
                 }
             }
         )
+        LLMProviderEditDialogState.ApiKeyEditor -> SensitiveValueEditorDialog(
+            title = stringResource(R.string.api_key_editor_title),
+            label = stringResource(R.string.api_key),
+            password = true,
+            minLines = 1,
+            onConfirm = { LLMProviderEditUiIntent.ConfirmApiKeyReplacement(it).emit() },
+            onDismiss = { LLMProviderEditUiIntent.DismissDialog.emit() }
+        )
+        LLMProviderEditDialogState.CustomHeadersEditor -> SensitiveValueEditorDialog(
+            title = stringResource(R.string.custom_headers_editor_title),
+            label = stringResource(R.string.custom_headers_json),
+            password = false,
+            minLines = 4,
+            onConfirm = {
+                LLMProviderEditUiIntent.ConfirmCustomHeadersReplacement(it).emit()
+            },
+            onDismiss = { LLMProviderEditUiIntent.DismissDialog.emit() }
+        )
     }
+}
+
+@Composable
+private fun SensitiveValueEditorDialog(
+    title: String,
+    label: String,
+    password: Boolean,
+    minLines: Int,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var value by remember(title) { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    stringResource(R.string.credential_editor_privacy_note),
+                    style = MaterialTheme.typography.bodySmall
+                )
+                OutlinedTextField(
+                    value = value,
+                    onValueChange = { value = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text(label) },
+                    minLines = minLines,
+                    visualTransformation = if (password) {
+                        PasswordVisualTransformation()
+                    } else {
+                        VisualTransformation.None
+                    }
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = value.isNotBlank(),
+                onClick = { onConfirm(value) }
+            ) {
+                Text(stringResource(R.string.confirm))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel))
+            }
+        }
+    )
 }
 
 @Composable
