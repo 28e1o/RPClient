@@ -97,6 +97,7 @@ import me.kafuuneko.rpclient.feature.main.presentation.MainUiState
 import me.kafuuneko.rpclient.libs.prompt.PromptPostProcessingMode
 import me.kafuuneko.rpclient.libs.prompt.SummaryInjectionPosition
 import me.kafuuneko.rpclient.libs.prompt.SummaryInjectionRole
+import me.kafuuneko.rpclient.model.TokenPreset
 import me.kafuuneko.rpclient.ui.dialog.DeleteSelectedSessionsDialog
 import me.kafuuneko.rpclient.ui.dialog.NumericEditDialog
 import me.kafuuneko.rpclient.ui.dialog.NumericEditQuickOption
@@ -296,9 +297,16 @@ private fun MainGenerationParameter.isDecimalInput(): Boolean = when (this) {
 }
 
 private fun MainGenerationParameter.quickOptions(): List<NumericEditQuickOption> {
-    val labels = listOf("8K", "16K", "32K", "64K", "128K", "256K", "512K", "1M")
-    return labels.zip(quickTokenValues()).map { (label, value) ->
-        NumericEditQuickOption(label = label, value = value.toString())
+    if (this != MainGenerationParameter.MaxTokens &&
+        this != MainGenerationParameter.ContextTokens
+    ) {
+        return emptyList()
+    }
+    return TokenPreset.entries.map { preset ->
+        NumericEditQuickOption(
+            label = preset.displayName,
+            value = preset.value.toString()
+        )
     }
 }
 

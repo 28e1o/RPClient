@@ -398,6 +398,7 @@
     <string name="base_url_empty">L\'URL de base ne peut pas être vide</string>
     <string name="model_name_required">Le nom du modèle est requis</string>
     <string name="generation_params_invalid">Le format des paramètres de génération est invalide</string>
+    <string name="max_tokens_must_be_less_than_context">Le nombre maximal de tokens doit être inférieur aux tokens de contexte</string>
     <string name="character_name_empty">Le nom du personnage ne peut pas être vide</string>
     <string name="character_created">Personnage créé</string>
     <string name="character_saved">Personnage enregistré</string>

@@ -29,12 +29,4 @@ class MainGenerationParameterTest {
         assertNull(MainGenerationParameter.MaxTokens.updateProviderOrNull(provider, "8192"))
         assertNull(MainGenerationParameter.ContextTokens.updateProviderOrNull(provider, "1200"))
     }
-
-    @Test
-    fun quickTokenValues_usesBinaryTokenSteps() {
-        assertEquals(
-            listOf(8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576),
-            MainGenerationParameter.ContextTokens.quickTokenValues()
-        )
-    }
 }

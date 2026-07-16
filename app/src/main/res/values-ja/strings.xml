@@ -399,6 +399,7 @@
     <string name="base_url_empty">ベースURLを入力してください</string>
     <string name="model_name_required">モデル名は必須です</string>
     <string name="generation_params_invalid">生成パラメータのフォーマットが無効です</string>
+    <string name="max_tokens_must_be_less_than_context">最大トークン数はコンテキストトークン数未満にしてください</string>
     <string name="character_name_empty">キャラクター名を入力してください</string>
     <string name="character_created">キャラクターを作成しました</string>
     <string name="character_saved">キャラクターを保存しました</string>

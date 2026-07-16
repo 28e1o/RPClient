@@ -19,6 +19,7 @@ import me.kafuuneko.rpclient.feature.main.presentation.MainHomeState
 import me.kafuuneko.rpclient.feature.main.model.MainChatSessionItem
 import me.kafuuneko.rpclient.feature.main.model.MainChatSessionGroup
 import me.kafuuneko.rpclient.feature.main.model.MainGroupChatSessionItem
+import me.kafuuneko.rpclient.feature.main.model.MainGenerationParameter
 import me.kafuuneko.rpclient.feature.main.model.MainProviderItem
 import me.kafuuneko.rpclient.feature.main.model.MainSessionType
 import me.kafuuneko.rpclient.feature.main.presentation.MainPage
@@ -314,7 +315,12 @@ class MainViewModel : CoreViewModelWithEvent<MainUiIntent, MainUiState>(
         } ?: return
         val updatedProvider = dialog.parameter.updateProviderOrNull(provider, dialog.draftValue)
         if (updatedProvider == null) {
-            AppViewEvent.PopupToastMessageByResId(R.string.generation_params_invalid).tryEmit()
+            val messageRes = if (dialog.hasInvalidTokenRelationship(provider)) {
+                R.string.max_tokens_must_be_less_than_context
+            } else {
+                R.string.generation_params_invalid
+            }
+            AppViewEvent.PopupToastMessageByResId(messageRes).tryEmit()
             return
         }
         withContext(Dispatchers.IO) {
@@ -329,6 +335,17 @@ class MainViewModel : CoreViewModelWithEvent<MainUiIntent, MainUiState>(
                 contextTokens = updatedProvider.contextTokens
             )
         ).setup()
+    }
+
+    private fun MainDialogState.EditGenerationParameter.hasInvalidTokenRelationship(
+        provider: LLMProvider
+    ): Boolean {
+        val value = draftValue.toIntOrNull() ?: return false
+        return when (parameter) {
+            MainGenerationParameter.MaxTokens -> value >= provider.contextTokens
+            MainGenerationParameter.ContextTokens -> value <= provider.maxTokens
+            MainGenerationParameter.Temperature, MainGenerationParameter.TopP -> false
+        }
     }
 
     @UiIntentObserver(MainUiIntent.PickUserAvatarClick::class)

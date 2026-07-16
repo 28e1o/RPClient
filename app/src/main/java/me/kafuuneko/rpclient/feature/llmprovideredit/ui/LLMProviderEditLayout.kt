@@ -56,6 +56,7 @@ import me.kafuuneko.rpclient.feature.llmprovideredit.presentation.LLMProviderEdi
 import me.kafuuneko.rpclient.libs.llm.model.LLMProviderProtocol
 import me.kafuuneko.rpclient.libs.llm.model.LLMProviderType
 import me.kafuuneko.rpclient.libs.prompt.PromptPostProcessingMode
+import me.kafuuneko.rpclient.model.TokenPreset
 import me.kafuuneko.rpclient.ui.theme.AppTheme
 import me.kafuuneko.rpclient.ui.widgets.AppTopBar
 import me.kafuuneko.rpclient.ui.widgets.RpIconBubble
@@ -275,18 +276,14 @@ private fun ParameterPanel(
             checked = form.sendTopP,
             onCheckedChange = { LLMProviderEditUiIntent.ToggleSendTopP(it).emit() }
         )
-        FormTextField(
+        TokenPresetField(
             label = stringResource(R.string.max_tokens),
             value = form.maxTokens,
-            modifier = Modifier.fillMaxWidth(),
-            keyboardType = KeyboardType.Number,
             onChange = { LLMProviderEditUiIntent.ChangeMaxTokens(it).emit() }
         )
-        FormTextField(
+        TokenPresetField(
             label = stringResource(R.string.context) + " " + stringResource(R.string.tokens),
             value = form.contextTokens,
-            modifier = Modifier.fillMaxWidth(),
-            keyboardType = KeyboardType.Number,
             onChange = { LLMProviderEditUiIntent.ChangeContextTokens(it).emit() }
         )
         Text(
@@ -301,6 +298,35 @@ private fun ParameterPanel(
                 LLMProviderEditUiIntent.SelectPostProcessingMode(it).emit()
             }
         )
+    }
+}
+
+@Composable
+private fun TokenPresetField(
+    label: String,
+    value: String,
+    onChange: (String) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        FormTextField(
+            label = label,
+            value = value,
+            modifier = Modifier.fillMaxWidth(),
+            keyboardType = KeyboardType.Number,
+            onChange = onChange
+        )
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(TokenPreset.entries) { preset ->
+                FilterChip(
+                    selected = value.toIntOrNull() == preset.value,
+                    onClick = { onChange(preset.value.toString()) },
+                    label = { Text(preset.displayName) }
+                )
+            }
+        }
     }
 }
 

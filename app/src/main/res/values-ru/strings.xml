@@ -398,6 +398,7 @@
     <string name="base_url_empty">Базовый URL не может быть пустым</string>
     <string name="model_name_required">Требуется название модели</string>
     <string name="generation_params_invalid">Неверный формат параметров генерации</string>
+    <string name="max_tokens_must_be_less_than_context">Максимальное число токенов должно быть меньше размера контекста</string>
     <string name="character_name_empty">Имя персонажа не может быть пустым</string>
     <string name="character_created">Персонаж создан</string>
     <string name="character_saved">Персонаж сохранён</string>

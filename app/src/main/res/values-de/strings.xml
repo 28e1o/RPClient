@@ -399,6 +399,7 @@
     <string name="base_url_empty">Basis-URL darf nicht leer sein</string>
     <string name="model_name_required">Modellname ist erforderlich</string>
     <string name="generation_params_invalid">Ungültiges Format der Generierungsparameter</string>
+    <string name="max_tokens_must_be_less_than_context">Maximale Tokens müssen kleiner als die Kontext-Tokens sein</string>
     <string name="character_name_empty">Charaktername darf nicht leer sein</string>
     <string name="character_created">Charakter erstellt</string>
     <string name="character_saved">Charakter gespeichert</string>

@@ -411,6 +411,7 @@
     <string name="base_url_empty">Base URL cannot be empty</string>
     <string name="model_name_required">Model name is required</string>
     <string name="generation_params_invalid">Generation parameters format is invalid</string>
+    <string name="max_tokens_must_be_less_than_context">Maximum tokens must be less than context tokens</string>
     <string name="character_name_empty">Character name cannot be empty</string>
     <string name="character_created">Character created</string>
     <string name="character_saved">Character saved</string>

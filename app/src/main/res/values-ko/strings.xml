@@ -398,6 +398,7 @@
     <string name="base_url_empty">기본 URL은 비워둘 수 없습니다</string>
     <string name="model_name_required">모델 이름은 필수 입력 항목입니다</string>
     <string name="generation_params_invalid">생성 파라미터 형식이 잘못되었습니다</string>
+    <string name="max_tokens_must_be_less_than_context">최대 토큰은 컨텍스트 토큰보다 작아야 합니다</string>
     <string name="character_name_empty">캐릭터 이름은 비워둘 수 없습니다</string>
     <string name="character_created">캐릭터가 생성되었습니다</string>
     <string name="character_saved">캐릭터가 저장되었습니다</string>

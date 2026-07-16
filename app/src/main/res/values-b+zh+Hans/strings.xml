@@ -410,6 +410,7 @@
     <string name="base_url_empty">Base URL 不能为空</string>
     <string name="model_name_required">模型名称为必填项</string>
     <string name="generation_params_invalid">生成参数格式无效</string>
+    <string name="max_tokens_must_be_less_than_context">最大 Token 必须小于上下文 Token</string>
     <string name="character_name_empty">角色名称不能为空</string>
     <string name="character_created">角色已创建</string>
     <string name="character_saved">角色已保存</string>

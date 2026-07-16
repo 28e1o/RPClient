@@ -300,6 +300,17 @@ class LLMProviderEditViewModel :
             AppViewEvent.PopupToastMessageByResId(R.string.model_name_required).tryEmit()
             return null
         }
+        val parsedMaxTokens = maxTokens.toIntOrNull()
+        val parsedContextTokens = contextTokens.toIntOrNull()
+        if (parsedMaxTokens != null &&
+            parsedContextTokens != null &&
+            parsedMaxTokens >= parsedContextTokens
+        ) {
+            AppViewEvent.PopupToastMessageByResId(
+                R.string.max_tokens_must_be_less_than_context
+            ).tryEmit()
+            return null
+        }
         val credentials = LLMProviderCredentialResolver.resolve(
             form = this,
             initialApiKey = mInitialApiKey,
