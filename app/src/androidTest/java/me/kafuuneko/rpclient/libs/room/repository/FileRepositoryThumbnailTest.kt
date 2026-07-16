@@ -59,16 +59,18 @@ class FileRepositoryThumbnailTest {
     }
 
     @Test
-    fun invalidSizeAndCorruptFile_returnNull() = runBlocking {
-        val corrupt = File.createTempFile("corrupt-avatar", ".bin", cacheDir).apply {
-            writeBytes(byteArrayOf(1, 2, 3, 4))
-        }
-        val uuid = repository.saveFile(corrupt, "application/octet-stream")
+    fun invalidSizeAndCorruptFile_returnNull() {
+        runBlocking {
+            val corrupt = File.createTempFile("corrupt-avatar", ".bin", cacheDir).apply {
+                writeBytes(byteArrayOf(1, 2, 3, 4))
+            }
+            val uuid = repository.saveFile(corrupt, "application/octet-stream")
 
-        assertNull(repository.loadSampledBitmap(uuid, 64, 64))
-        assertNull(repository.loadSampledBitmap(uuid, 0, 64))
-        assertNull(repository.loadSampledBitmap(uuid, 64, -1))
-        corrupt.delete()
+            assertNull(repository.loadSampledBitmap(uuid, 64, 64))
+            assertNull(repository.loadSampledBitmap(uuid, 0, 64))
+            assertNull(repository.loadSampledBitmap(uuid, 64, -1))
+            corrupt.delete()
+        }
     }
 
     private suspend fun saveBitmap(width: Int, height: Int): String {
