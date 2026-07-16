@@ -13,6 +13,7 @@ import me.kafuuneko.rpclient.feature.chatcreate.ChatCreateActivity
 import me.kafuuneko.rpclient.feature.groupchat.GroupChatActivity
 import me.kafuuneko.rpclient.feature.groupchatcreate.GroupChatCreateActivity
 import me.kafuuneko.rpclient.feature.llmproviderlist.LLMProviderListActivity
+import me.kafuuneko.rpclient.feature.llmprovideredit.LLMProviderEditActivity
 import me.kafuuneko.rpclient.feature.main.presentation.MainDialogState
 import me.kafuuneko.rpclient.feature.main.presentation.MainHomeState
 import me.kafuuneko.rpclient.feature.main.model.MainChatSessionItem
@@ -261,6 +262,73 @@ class MainViewModel : CoreViewModelWithEvent<MainUiIntent, MainUiState>(
     private fun onOpenProviderManager() {
         if (!isStateOf<MainUiState.Normal>()) return
         AppViewEvent.StartActivity(LLMProviderListActivity::class.java).tryEmit()
+    }
+
+    @UiIntentObserver(MainUiIntent.OpenSelectedProviderEdit::class)
+    private fun onOpenSelectedProviderEdit() {
+        val uiState = getOrNull<MainUiState.Normal>() ?: return
+        val providerId = uiState.settingsState.selectedProviderId.toLongOrNull() ?: return
+        AppViewEvent.StartActivity(
+            activity = LLMProviderEditActivity::class.java,
+            extras = Bundle().apply {
+                putLong(LLMProviderEditActivity.EXTRA_PROVIDER_ID, providerId)
+            }
+        ).tryEmit()
+    }
+
+    @UiIntentObserver(MainUiIntent.ShowGenerationParameterDialog::class)
+    private suspend fun onShowGenerationParameterDialog(
+        intent: MainUiIntent.ShowGenerationParameterDialog
+    ) {
+        val uiState = getOrNull<MainUiState.Normal>() ?: return
+        val providerId = uiState.settingsState.selectedProviderId.toLongOrNull() ?: return
+        val provider = withContext(Dispatchers.IO) {
+            mLLMRepository.getProviderById(providerId)
+        } ?: return
+        uiState.copy(
+            dialogState = MainDialogState.EditGenerationParameter(
+                parameter = intent.parameter,
+                draftValue = intent.parameter.valueOf(provider)
+            )
+        ).setup()
+    }
+
+    @UiIntentObserver(MainUiIntent.ChangeGenerationParameterDraft::class)
+    private fun onChangeGenerationParameterDraft(
+        intent: MainUiIntent.ChangeGenerationParameterDraft
+    ) {
+        val uiState = getOrNull<MainUiState.Normal>() ?: return
+        val dialog = uiState.dialogState as? MainDialogState.EditGenerationParameter ?: return
+        uiState.copy(
+            dialogState = dialog.copy(draftValue = intent.value)
+        ).setup()
+    }
+
+    @UiIntentObserver(MainUiIntent.ConfirmGenerationParameter::class)
+    private suspend fun onConfirmGenerationParameter() {
+        val uiState = getOrNull<MainUiState.Normal>() ?: return
+        val dialog = uiState.dialogState as? MainDialogState.EditGenerationParameter ?: return
+        val providerId = uiState.settingsState.selectedProviderId.toLongOrNull() ?: return
+        val provider = withContext(Dispatchers.IO) {
+            mLLMRepository.getProviderById(providerId)
+        } ?: return
+        val updatedProvider = dialog.parameter.updateProviderOrNull(provider, dialog.draftValue)
+        if (updatedProvider == null) {
+            AppViewEvent.PopupToastMessageByResId(R.string.generation_params_invalid).tryEmit()
+            return
+        }
+        withContext(Dispatchers.IO) {
+            mLLMRepository.saveProvider(updatedProvider)
+        }
+        uiState.copy(
+            dialogState = MainDialogState.None,
+            settingsState = uiState.settingsState.copy(
+                temperature = updatedProvider.temperature,
+                topP = updatedProvider.topP,
+                maxTokens = updatedProvider.maxTokens,
+                contextTokens = updatedProvider.contextTokens
+            )
+        ).setup()
     }
 
     @UiIntentObserver(MainUiIntent.PickUserAvatarClick::class)

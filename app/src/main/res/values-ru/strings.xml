@@ -38,6 +38,8 @@
     <string name="temperature">Температура</string>
     <string name="top_p">Top P</string>
     <string name="max_tokens">Максимум токенов</string>
+    <string name="edit_numeric_value_title">Изменить: %1$s</string>
+    <string name="quick_select">Быстрый выбор</string>
     <string name="streaming_response">Потоковый ответ</string>
     <string name="streaming_response_desc">Отображать вывод модели в реальном времени, поддерживает остановку генерации</string>
     <string name="new_session_desc">Выберите персонажа, заметки и записи книги мира</string>

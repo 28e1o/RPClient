@@ -38,6 +38,8 @@
     <string name="temperature">Température</string>
     <string name="top_p">Top P</string>
     <string name="max_tokens">Tokens max</string>
+    <string name="edit_numeric_value_title">Modifier %1$s</string>
+    <string name="quick_select">Sélection rapide</string>
     <string name="streaming_response">Réponse en streaming</string>
     <string name="streaming_response_desc">Afficher la sortie du modèle en temps réel, prend en charge l\'arrêt de la génération</string>
     <string name="new_session_desc">Choisissez un personnage, des notes et des entrées de livre d\'univers</string>

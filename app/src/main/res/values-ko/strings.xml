@@ -38,6 +38,8 @@
     <string name="temperature">온도</string>
     <string name="top_p">Top P</string>
     <string name="max_tokens">최대 토큰</string>
+    <string name="edit_numeric_value_title">%1$s 편집</string>
+    <string name="quick_select">빠른 선택</string>
     <string name="streaming_response">스트리밍 응답</string>
     <string name="streaming_response_desc">모델 출력을 실시간으로 표시하며, 생성 중단을 지원합니다</string>
     <string name="new_session_desc">캐릭터, 메모 및 월드북 항목 선택</string>

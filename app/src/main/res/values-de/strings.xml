@@ -39,6 +39,8 @@
     <string name="temperature">Temperatur</string>
     <string name="top_p">Top P</string>
     <string name="max_tokens">Maximale Tokens</string>
+    <string name="edit_numeric_value_title">%1$s bearbeiten</string>
+    <string name="quick_select">Schnellauswahl</string>
     <string name="streaming_response">Antwort-Streaming</string>
     <string name="streaming_response_desc">Modellausgabe in Echtzeit anzeigen, unterstützt das Stoppen der Generierung</string>
     <string name="new_session_desc">Wähle einen Charakter, Notizen und Weltbuch-Einträge</string>

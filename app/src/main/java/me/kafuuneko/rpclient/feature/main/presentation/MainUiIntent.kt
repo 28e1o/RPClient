@@ -2,6 +2,7 @@ package me.kafuuneko.rpclient.feature.main.presentation
 
 import android.net.Uri
 import me.kafuuneko.rpclient.feature.main.model.MainSessionSelection
+import me.kafuuneko.rpclient.feature.main.model.MainGenerationParameter
 import me.kafuuneko.rpclient.libs.prompt.PromptPostProcessingMode
 import me.kafuuneko.rpclient.libs.prompt.SummaryInjectionPosition
 import me.kafuuneko.rpclient.libs.prompt.SummaryInjectionRole
@@ -29,6 +30,16 @@ sealed class MainUiIntent {
     data object OpenWorldBookManager : MainUiIntent()
 
     data object OpenProviderManager : MainUiIntent()
+
+    data object OpenSelectedProviderEdit : MainUiIntent()
+
+    data class ShowGenerationParameterDialog(
+        val parameter: MainGenerationParameter
+    ) : MainUiIntent()
+
+    data class ChangeGenerationParameterDraft(val value: String) : MainUiIntent()
+
+    data object ConfirmGenerationParameter : MainUiIntent()
 
     data object PickUserAvatarClick : MainUiIntent()
 

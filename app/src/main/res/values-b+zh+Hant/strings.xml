@@ -37,6 +37,8 @@
     <string name="temperature">溫度</string>
     <string name="top_p">Top P</string>
     <string name="max_tokens">最大 Tokens</string>
+    <string name="edit_numeric_value_title">編輯%1$s</string>
+    <string name="quick_select">快速選擇</string>
     <string name="streaming_response">串流回應</string>
     <string name="streaming_response_desc">即時顯示模型輸出，支援停止生成</string>
     <string name="new_session_desc">選擇角色、備註和世界書條目</string>

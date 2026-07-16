@@ -39,6 +39,8 @@
     <string name="temperature">温度</string>
     <string name="top_p">Top P</string>
     <string name="max_tokens">最大トークン数</string>
+    <string name="edit_numeric_value_title">%1$sを編集</string>
+    <string name="quick_select">クイック選択</string>
     <string name="streaming_response">ストリーミング応答</string>
     <string name="streaming_response_desc">モデルの出力をリアルタイムで表示し、生成の中止をサポートします</string>
     <string name="new_session_desc">キャラクター、ノート、ワールドブックのエントリを選択します</string>

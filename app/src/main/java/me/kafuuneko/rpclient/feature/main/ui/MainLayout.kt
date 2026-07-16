@@ -17,35 +17,33 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.AddComment
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Book
-import androidx.compose.material.icons.rounded.ChatBubble
 import androidx.compose.material.icons.rounded.BugReport
+import androidx.compose.material.icons.rounded.ChatBubble
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Compress
 import androidx.compose.material.icons.rounded.DataObject
 import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Groups
-import androidx.compose.material.icons.rounded.Image as ImageIcon
+import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
@@ -53,7 +51,6 @@ import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Storage
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -79,25 +76,30 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import me.kafuuneko.rpclient.R
-import me.kafuuneko.rpclient.feature.main.presentation.MainHomeState
-import me.kafuuneko.rpclient.feature.main.presentation.MainPage
-import me.kafuuneko.rpclient.feature.main.presentation.MainSettingsState
-import me.kafuuneko.rpclient.feature.main.presentation.MainDialogState
-import me.kafuuneko.rpclient.feature.main.presentation.MainUiIntent
-import me.kafuuneko.rpclient.feature.main.presentation.MainUiState
-import me.kafuuneko.rpclient.feature.main.model.MainChatSessionItem
 import me.kafuuneko.rpclient.feature.main.model.MainChatSessionGroup
+import me.kafuuneko.rpclient.feature.main.model.MainChatSessionItem
+import me.kafuuneko.rpclient.feature.main.model.MainGenerationParameter
 import me.kafuuneko.rpclient.feature.main.model.MainGroupChatSessionItem
 import me.kafuuneko.rpclient.feature.main.model.MainProviderItem
 import me.kafuuneko.rpclient.feature.main.model.MainSessionSelection
 import me.kafuuneko.rpclient.feature.main.model.MainSessionType
+import me.kafuuneko.rpclient.feature.main.presentation.MainDialogState
+import me.kafuuneko.rpclient.feature.main.presentation.MainHomeState
+import me.kafuuneko.rpclient.feature.main.presentation.MainPage
+import me.kafuuneko.rpclient.feature.main.presentation.MainSettingsState
+import me.kafuuneko.rpclient.feature.main.presentation.MainUiIntent
+import me.kafuuneko.rpclient.feature.main.presentation.MainUiState
 import me.kafuuneko.rpclient.libs.prompt.PromptPostProcessingMode
 import me.kafuuneko.rpclient.libs.prompt.SummaryInjectionPosition
 import me.kafuuneko.rpclient.libs.prompt.SummaryInjectionRole
+import me.kafuuneko.rpclient.ui.dialog.DeleteSelectedSessionsDialog
+import me.kafuuneko.rpclient.ui.dialog.NumericEditDialog
+import me.kafuuneko.rpclient.ui.dialog.NumericEditQuickOption
 import me.kafuuneko.rpclient.ui.theme.AppTheme
 import me.kafuuneko.rpclient.ui.theme.ProviderAvailableColor
 import me.kafuuneko.rpclient.ui.theme.ProviderDisabledColor
@@ -109,7 +111,7 @@ import me.kafuuneko.rpclient.ui.widgets.RpInfoCard
 import me.kafuuneko.rpclient.ui.widgets.RpMetaRow
 import me.kafuuneko.rpclient.ui.widgets.RpPageTitle
 import me.kafuuneko.rpclient.ui.widgets.RpSectionHeader
-import me.kafuuneko.rpclient.ui.widgets.RpTagRow
+import androidx.compose.material.icons.rounded.Image as ImageIcon
 
 /** 主页面 Compose 入口，承载首页会话列表与全局设置。 */
 @Composable
@@ -261,25 +263,42 @@ private fun DialogSwitch(
     emit: MainUiIntent.() -> Unit
 ) {
     when (dialogState) {
-        is MainDialogState.None -> Unit
-        is MainDialogState.DeleteSelectedSessions -> AlertDialog(
-            onDismissRequest = { MainUiIntent.DismissDialog.emit() },
-            title = { Text(stringResource(R.string.delete_selected_sessions_title)) },
-            text = { Text(stringResource(R.string.delete_selected_sessions_message, dialogState.count)) },
-            confirmButton = {
-                TextButton(onClick = { MainUiIntent.ConfirmDeleteSelected.emit() }) {
-                    Text(
-                        stringResource(R.string.delete),
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { MainUiIntent.DismissDialog.emit() }) {
-                    Text(stringResource(R.string.cancel))
-                }
-            }
+        MainDialogState.None -> Unit
+
+        is MainDialogState.DeleteSelectedSessions -> DeleteSelectedSessionsDialog(
+            count = dialogState.count,
+            onConfirm = { MainUiIntent.ConfirmDeleteSelected.emit() },
+            onDismiss = { MainUiIntent.DismissDialog.emit() }
         )
+
+        is MainDialogState.EditGenerationParameter -> NumericEditDialog(
+            title = stringResource(dialogState.parameter.titleRes()),
+            value = dialogState.draftValue,
+            decimalInput = dialogState.parameter.isDecimalInput(),
+            quickOptions = dialogState.parameter.quickOptions(),
+            onValueChange = { MainUiIntent.ChangeGenerationParameterDraft(it).emit() },
+            onConfirm = { MainUiIntent.ConfirmGenerationParameter.emit() },
+            onDismiss = { MainUiIntent.DismissDialog.emit() }
+        )
+    }
+}
+
+private fun MainGenerationParameter.titleRes(): Int = when (this) {
+    MainGenerationParameter.Temperature -> R.string.temperature
+    MainGenerationParameter.TopP -> R.string.top_p
+    MainGenerationParameter.MaxTokens -> R.string.max_tokens
+    MainGenerationParameter.ContextTokens -> R.string.context
+}
+
+private fun MainGenerationParameter.isDecimalInput(): Boolean = when (this) {
+    MainGenerationParameter.Temperature, MainGenerationParameter.TopP -> true
+    MainGenerationParameter.MaxTokens, MainGenerationParameter.ContextTokens -> false
+}
+
+private fun MainGenerationParameter.quickOptions(): List<NumericEditQuickOption> {
+    val labels = listOf("8K", "16K", "32K", "64K", "128K", "256K", "512K", "1M")
+    return labels.zip(quickTokenValues()).map { (label, value) ->
+        NumericEditQuickOption(label = label, value = value.toString())
     }
 }
 
@@ -297,7 +316,7 @@ private fun MainBottomBarItem(
         selected -> MaterialTheme.colorScheme.primary
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
-    
+
     val containerColor = if (selected) {
         MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
     } else {
@@ -449,7 +468,10 @@ private fun HomePage(
                     modifier = Modifier.fillMaxWidth(),
                     icon = Icons.Rounded.Person,
                     title = stringResource(R.string.character),
-                    subtitle = stringResource(R.string.character_cards_count, state.totalCharacters),
+                    subtitle = stringResource(
+                        R.string.character_cards_count,
+                        state.totalCharacters
+                    ),
                     onClick = { MainUiIntent.OpenCharacterManager.emit() }
                 )
             }
@@ -788,7 +810,7 @@ private fun SettingsPage(
                     onClick = { MainUiIntent.SelectProvider(provider.id.toString()).emit() }
                 )
             }
-            item { ParameterPanel(state) }
+            item { ParameterPanel(state, emit) }
         }
         item { PromptBehaviorPanel(state, emit) }
         item { PromptPresetEntryCard { MainUiIntent.OpenPromptPreset.emit() } }
@@ -1036,7 +1058,9 @@ private fun ProviderCard(
         shape = RoundedCornerShape(16.dp),
         border = BorderStroke(
             width = if (selected) 2.dp else 1.dp,
-            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(
+                alpha = 0.4f
+            )
         ),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
@@ -1065,7 +1089,7 @@ private fun ProviderCard(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            
+
             val dotColor = when {
                 !provider.isEnabled -> ProviderDisabledColor
                 !provider.hasApiKey -> ProviderPendingColor
@@ -1096,7 +1120,10 @@ private fun ProviderCard(
 }
 
 @Composable
-private fun ParameterPanel(state: MainSettingsState) {
+private fun ParameterPanel(
+    state: MainSettingsState,
+    emit: MainUiIntent.() -> Unit
+) {
     Card(
         shape = RoundedCornerShape(16.dp),
         border = BorderStroke(
@@ -1112,27 +1139,44 @@ private fun ParameterPanel(state: MainSettingsState) {
             RpSectionHeader(
                 title = stringResource(R.string.generation_parameters),
                 action = stringResource(R.string.preset)
-            )
-            ParameterRow(stringResource(R.string.temperature), state.temperature.toString())
-            ParameterRow(stringResource(R.string.top_p), state.topP.toString())
-            ParameterRow(stringResource(R.string.max_tokens), state.maxTokens.toString())
+            ) { MainUiIntent.OpenSelectedProviderEdit.emit() }
+            ParameterRow(
+                stringResource(R.string.temperature),
+                state.temperature.toString()
+            ) {
+                MainUiIntent.ShowGenerationParameterDialog(MainGenerationParameter.Temperature)
+                    .emit()
+            }
+            ParameterRow(
+                stringResource(R.string.top_p),
+                state.topP.toString()
+            ) { MainUiIntent.ShowGenerationParameterDialog(MainGenerationParameter.TopP).emit() }
+            ParameterRow(
+                stringResource(R.string.max_tokens),
+                state.maxTokens.toString()
+            ) {
+                MainUiIntent.ShowGenerationParameterDialog(MainGenerationParameter.MaxTokens).emit()
+            }
             ParameterRow(
                 stringResource(R.string.context),
                 "${state.contextTokens} ${stringResource(R.string.tokens)}"
-            )
+            ) {
+                MainUiIntent.ShowGenerationParameterDialog(MainGenerationParameter.ContextTokens)
+                    .emit()
+            }
         }
     }
 }
 
 @Composable
-private fun ParameterRow(label: String, value: String) {
+private fun ParameterRow(label: String, value: String, onClick: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
             label,
             modifier = Modifier.weight(1f),
             style = MaterialTheme.typography.bodyMedium
         )
-        FilterChip(selected = true, onClick = {}, label = { Text(value) })
+        FilterChip(selected = true, onClick = onClick, label = { Text(value) })
     }
 }
 
@@ -1179,7 +1223,9 @@ private fun SummaryPanel(
         ) {
             RpSectionHeader(
                 title = stringResource(R.string.summary_memory),
-                action = if (state.autoSummaryEnabled) stringResource(R.string.auto) else stringResource(R.string.manual)
+                action = if (state.autoSummaryEnabled) stringResource(R.string.auto) else stringResource(
+                    R.string.manual
+                )
             )
             SettingSwitchRow(
                 Icons.Rounded.AutoAwesome,
@@ -1272,7 +1318,9 @@ private fun NumberSettingRow(
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Column(
-            modifier = Modifier.weight(1f).padding(end = 12.dp),
+            modifier = Modifier
+                .weight(1f)
+                .padding(end = 12.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             Text(
