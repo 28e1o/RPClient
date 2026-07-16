@@ -6,6 +6,8 @@ data class MainProviderItem(
     val name: String,
     val baseUrl: String,
     val model: String,
-    val isEnabled: Boolean,
-    val hasApiKey: Boolean = false
-)
+    val isEnabled: Boolean
+) {
+    val isConfigured: Boolean
+        get() = baseUrl.isNotBlank() && model.isNotBlank()
+}

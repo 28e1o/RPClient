@@ -78,8 +78,7 @@ class LLMProviderListViewModel : CoreViewModelWithEvent<LLMProviderListUiIntent,
                 protocol = provider.protocol,
                 baseUrl = provider.baseUrl,
                 model = provider.model,
-                isEnabled = provider.isEnabled,
-                hasApiKey = provider.apiKey.isNotBlank()
+                isEnabled = provider.isEnabled
             )
         }
         uiState.copy(

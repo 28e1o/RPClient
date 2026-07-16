@@ -1100,12 +1100,12 @@ private fun ProviderCard(
 
             val dotColor = when {
                 !provider.isEnabled -> ProviderDisabledColor
-                !provider.hasApiKey -> ProviderPendingColor
+                !provider.isConfigured -> ProviderPendingColor
                 else -> ProviderAvailableColor
             }
             val statusText = when {
                 !provider.isEnabled -> stringResource(R.string.not_enabled)
-                !provider.hasApiKey -> stringResource(R.string.pending_config)
+                !provider.isConfigured -> stringResource(R.string.pending_config)
                 else -> stringResource(R.string.available)
             }
             Row(

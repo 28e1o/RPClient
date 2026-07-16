@@ -663,8 +663,7 @@ class MainViewModel : CoreViewModelWithEvent<MainUiIntent, MainUiState>(
             name = name,
             baseUrl = baseUrl,
             model = model,
-            isEnabled = isEnabled,
-            hasApiKey = apiKey.isNotBlank()
+            isEnabled = isEnabled
         )
     }
 

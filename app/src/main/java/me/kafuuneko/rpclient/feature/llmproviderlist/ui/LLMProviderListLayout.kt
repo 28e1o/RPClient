@@ -206,7 +206,7 @@ private fun LLMProviderListItem.typeText(): String {
 private fun LLMProviderListItem.statusText(): String {
     return when {
         !isEnabled -> stringResource(R.string.not_enabled)
-        !hasApiKey -> stringResource(R.string.pending_config)
+        !isConfigured -> stringResource(R.string.pending_config)
         else -> stringResource(R.string.available)
     }
 }
