@@ -52,7 +52,7 @@ The data sent to a model provider may include:
 3. Prompt content required to generate a response, including character settings, activated lorebook content, chat history, summary memory, user input, and system prompts.
 4. Request data required for connection tests, summary generation, continuation, regeneration, or group chat replies.
 
-Built-in templates may refer to providers such as OpenAI, Google Gemini, Anthropic, DeepSeek, and OpenRouter. RPClient also supports OpenAI-compatible APIs and custom proxy endpoints. Third-party providers process your request data under their own privacy policies, terms of service, and data processing rules. The RPClient developer cannot control how third-party providers store, use, or delete your data.
+Built-in templates may refer to providers such as OpenAI, Google Gemini, Anthropic, DeepSeek, xAI, and OpenRouter. RPClient also supports OpenAI-compatible APIs and custom proxy endpoints. Third-party providers process your request data under their own privacy policies, terms of service, and data processing rules. The RPClient developer cannot control how third-party providers store, use, or delete your data.
 
 Only configure service addresses and proxy endpoints that you trust. Avoid entering real identity numbers, bank card numbers, addresses, contact details, health information, precise location, minors' information, sensitive identity information, or any other content that you do not want a third-party service to process.
 
@@ -141,4 +141,3 @@ Email: kafuuneko@gmail.com
 GitHub: https://github.com/KafuuNeko/RPClient
 
 We will respond to valid requests as soon as reasonably possible. For security reasons, we may need information sufficient to verify that the request relates to a specific device, local data, or project issue.
-

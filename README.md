@@ -54,7 +54,7 @@ The project draws on SillyTavern's ecosystem for character cards, lorebooks, pro
 - OpenAI Compatible API
 - Google Gemini API
 - Anthropic Messages API
-- Built-in configuration templates for ChatGPT, Gemini, Claude, DeepSeek, and OpenRouter
+- Built-in configuration templates for ChatGPT, Gemini, Claude, DeepSeek, Grok, and OpenRouter
 - Custom service URLs, models, request headers, and generation parameters
 - Prompt presets, macro expansion, and protocol-specific message post-processing
 - Prompt Inspector for reviewing final messages, Token budgets, lorebook matches, Regex processing, and omitted content
@@ -104,7 +104,7 @@ When reporting compatibility issues, include sanitized character cards, lorebook
 
 - RPClient does not provide model services. Users are responsible for API usage fees and generated content.
 - Request content is sent to the model provider configured by the user. Review the provider's privacy policy before use.
-- This project is not affiliated with or officially partnered with SillyTavern, OpenAI, Google, Anthropic, DeepSeek, or OpenRouter.
+- This project is not affiliated with or officially partnered with SillyTavern, OpenAI, Google, Anthropic, DeepSeek, xAI, or OpenRouter.
 - Copyright and usage permissions for character cards, lorebooks, and other imported content are the responsibility of their providers and users.
 
 ## Contact

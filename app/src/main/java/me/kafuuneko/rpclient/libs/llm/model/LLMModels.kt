@@ -8,6 +8,7 @@ enum class LLMProviderType {
     Gemini,
     Claude,
     DeepSeek,
+    Grok,
     OpenRouter,
     Custom
 }

@@ -54,7 +54,7 @@ RPClient 使用 Kotlin 与 Jetpack Compose 编写，在 Android 设备上提供�
 - OpenAI Compatible API
 - Google Gemini API
 - Anthropic Messages API
-- 内置 ChatGPT、Gemini、Claude、DeepSeek 和 OpenRouter 配置模板
+- 内置 ChatGPT、Gemini、Claude、DeepSeek、Grok 和 OpenRouter 配置模板
 - 支持自定义服务地址、模型、请求头与生成参数
 - Prompt 预设、宏展开和协议相关的消息后处理
 - Prompt Inspector：检查最终消息、Token 预算、世界书命中、Regex 处理与省略内容
@@ -104,7 +104,7 @@ API Key 仅保存在应用本地，但会随模型请求发送给所配置的服
 
 - RPClient 不提供模型服务，使用模型 API 产生的费用与内容责任由用户自行承担。
 - 请求内容会发送到用户配置的模型服务商，使用前请阅读对应服务的隐私政策。
-- 项目与 SillyTavern、OpenAI、Google、Anthropic、DeepSeek 及 OpenRouter 均无隶属或官方合作关系。
+- 项目与 SillyTavern、OpenAI、Google、Anthropic、DeepSeek、xAI 及 OpenRouter 均无隶属或官方合作关系。
 - 角色卡、世界书及其他导入内容的版权与使用授权由其提供者和使用者负责。
 
 ## 联系方式
