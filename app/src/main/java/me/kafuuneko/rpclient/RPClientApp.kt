@@ -11,6 +11,8 @@ import me.kafuuneko.rpclient.libs.groupchat.GroupChatGreetingPlanner
 import me.kafuuneko.rpclient.libs.groupchat.GroupChatSpeakerSelector
 import me.kafuuneko.rpclient.libs.groupchat.GroupChatSummaryPromptBuilder
 import me.kafuuneko.rpclient.libs.llm.LLMClientFactory
+import me.kafuuneko.rpclient.libs.llm.catalog.LLMModelCatalogClientFactory
+import me.kafuuneko.rpclient.libs.llm.catalog.LLMModelCatalogRepository
 import me.kafuuneko.rpclient.libs.prompt.ChatPromptBuilder
 import me.kafuuneko.rpclient.libs.prompt.FormattedHistoryBuilder
 import me.kafuuneko.rpclient.libs.prompt.PromptMacroResolver
@@ -69,6 +71,8 @@ private val appModules = module {
     single { Gson() }
 
     singleOf(::LLMClientFactory)
+    singleOf(::LLMModelCatalogClientFactory)
+    singleOf(::LLMModelCatalogRepository)
     singleOf(::FormattedHistoryBuilder)
     singleOf(::PromptMacroResolver)
     singleOf(::WorldBookActivator)

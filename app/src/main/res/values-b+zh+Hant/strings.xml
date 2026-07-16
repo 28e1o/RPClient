@@ -363,6 +363,17 @@
     <string name="base_url">Base URL</string>
     <string name="api_key">API Key</string>
     <string name="model_name">模型名稱</string>
+    <string name="query_models">查詢模型</string>
+    <string name="cancel_model_query">取消模型查詢</string>
+    <string name="querying_models">正在查詢可用模型…</string>
+    <string name="model_manual_input_hint">手動輸入模型 ID，或向供應商查詢</string>
+    <string name="available_models_found">已查詢到 %1$d 個模型 · 點選選擇</string>
+    <string name="no_available_models_returned">未傳回可用於文字生成的模型，仍可手動輸入 ID</string>
+    <string name="choose_model">選擇模型</string>
+    <string name="search_models">搜尋模型名稱或 ID</string>
+    <string name="no_matching_models">沒有符合的模型</string>
+    <string name="model_context_tokens">上下文 %1$,d</string>
+    <string name="model_max_output_tokens">最大輸出 %1$,d</string>
     <string name="enabled">已啟用</string>
     <string name="enabled_desc">啟用後會顯示在首頁設定中</string>
     <string name="protocol">協定</string>
@@ -411,6 +422,9 @@
     <string name="model_name_required">模型名稱為必填項</string>
     <string name="generation_params_invalid">生成參數格式無效</string>
     <string name="max_tokens_must_be_less_than_context">最大 Token 必須小於上下文 Token</string>
+    <string name="model_query_unsupported">此服務不支援查詢模型，請手動填寫模型 ID</string>
+    <string name="model_query_invalid_response">供應商傳回了無法辨識的模型清單</string>
+    <string name="model_query_failed">查詢可用模型失敗</string>
     <string name="character_name_empty">角色名稱不能為空</string>
     <string name="character_created">角色已建立</string>
     <string name="character_saved">角色已儲存</string>

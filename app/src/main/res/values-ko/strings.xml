@@ -364,6 +364,17 @@
     <string name="base_url">기본 URL (Base URL)</string>
     <string name="api_key">API 키</string>
     <string name="model_name">모델 이름</string>
+    <string name="query_models">모델 조회</string>
+    <string name="cancel_model_query">모델 조회 취소</string>
+    <string name="querying_models">사용 가능한 모델을 조회하는 중…</string>
+    <string name="model_manual_input_hint">모델 ID를 직접 입력하거나 제공자에서 조회하세요</string>
+    <string name="available_models_found">사용 가능한 모델 %1$d개 · 선택</string>
+    <string name="no_available_models_returned">텍스트 생성에 사용할 수 있는 모델이 반환되지 않았습니다. 모델 ID를 직접 입력할 수 있습니다</string>
+    <string name="choose_model">모델 선택</string>
+    <string name="search_models">모델 이름 또는 ID 검색</string>
+    <string name="no_matching_models">일치하는 모델이 없습니다</string>
+    <string name="model_context_tokens">컨텍스트 %1$,d</string>
+    <string name="model_max_output_tokens">최대 출력 %1$,d</string>
     <string name="enabled">활성화됨</string>
     <string name="enabled_desc">활성화 시 메인 페이지 설정에 표시됩니다</string>
     <string name="protocol">프로토콜</string>
@@ -399,6 +410,9 @@
     <string name="model_name_required">모델 이름은 필수 입력 항목입니다</string>
     <string name="generation_params_invalid">생성 파라미터 형식이 잘못되었습니다</string>
     <string name="max_tokens_must_be_less_than_context">최대 토큰은 컨텍스트 토큰보다 작아야 합니다</string>
+    <string name="model_query_unsupported">이 서비스는 모델 조회를 지원하지 않습니다. 모델 ID를 직접 입력하세요</string>
+    <string name="model_query_invalid_response">제공자가 인식할 수 없는 모델 목록을 반환했습니다</string>
+    <string name="model_query_failed">사용 가능한 모델을 조회하지 못했습니다</string>
     <string name="character_name_empty">캐릭터 이름은 비워둘 수 없습니다</string>
     <string name="character_created">캐릭터가 생성되었습니다</string>
     <string name="character_saved">캐릭터가 저장되었습니다</string>

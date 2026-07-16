@@ -364,6 +364,17 @@
     <string name="base_url">Базовый URL</string>
     <string name="api_key">API-ключ</string>
     <string name="model_name">Название модели</string>
+    <string name="query_models">Запросить модели</string>
+    <string name="cancel_model_query">Отменить запрос моделей</string>
+    <string name="querying_models">Запрос доступных моделей…</string>
+    <string name="model_manual_input_hint">Введите ID модели вручную или запросите список у поставщика</string>
+    <string name="available_models_found">Доступно моделей: %1$d · Выбрать</string>
+    <string name="no_available_models_returned">Модели для генерации текста не возвращены; ID всё равно можно ввести вручную</string>
+    <string name="choose_model">Выбрать модель</string>
+    <string name="search_models">Поиск по названию или ID модели</string>
+    <string name="no_matching_models">Подходящие модели не найдены</string>
+    <string name="model_context_tokens">Контекст %1$,d</string>
+    <string name="model_max_output_tokens">Макс. вывод %1$,d</string>
     <string name="enabled">Включено</string>
     <string name="enabled_desc">Появится в настройках главной страницы после включения</string>
     <string name="protocol">Протокол</string>
@@ -399,6 +410,9 @@
     <string name="model_name_required">Требуется название модели</string>
     <string name="generation_params_invalid">Неверный формат параметров генерации</string>
     <string name="max_tokens_must_be_less_than_context">Максимальное число токенов должно быть меньше размера контекста</string>
+    <string name="model_query_unsupported">Этот сервис не поддерживает запрос моделей. Введите ID модели вручную</string>
+    <string name="model_query_invalid_response">Поставщик вернул нераспознанный список моделей</string>
+    <string name="model_query_failed">Не удалось запросить доступные модели</string>
     <string name="character_name_empty">Имя персонажа не может быть пустым</string>
     <string name="character_created">Персонаж создан</string>
     <string name="character_saved">Персонаж сохранён</string>

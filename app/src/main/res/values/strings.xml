@@ -364,6 +364,17 @@
     <string name="base_url">Base URL</string>
     <string name="api_key">API Key</string>
     <string name="model_name">Model Name</string>
+    <string name="query_models">Query models</string>
+    <string name="cancel_model_query">Cancel model query</string>
+    <string name="querying_models">Querying available models…</string>
+    <string name="model_manual_input_hint">Enter a model ID manually or query the provider</string>
+    <string name="available_models_found">%1$d models available · Choose</string>
+    <string name="no_available_models_returned">No text generation models were returned; you can still enter an ID manually</string>
+    <string name="choose_model">Choose Model</string>
+    <string name="search_models">Search model name or ID</string>
+    <string name="no_matching_models">No matching models</string>
+    <string name="model_context_tokens">Context %1$,d</string>
+    <string name="model_max_output_tokens">Max output %1$,d</string>
     <string name="enabled">Enabled</string>
     <string name="enabled_desc">Will appear in main page settings after enabling</string>
     <string name="protocol">Protocol</string>
@@ -412,6 +423,9 @@
     <string name="model_name_required">Model name is required</string>
     <string name="generation_params_invalid">Generation parameters format is invalid</string>
     <string name="max_tokens_must_be_less_than_context">Maximum tokens must be less than context tokens</string>
+    <string name="model_query_unsupported">This service does not support model queries; enter the model ID manually</string>
+    <string name="model_query_invalid_response">The provider returned an unrecognized model list</string>
+    <string name="model_query_failed">Could not query available models</string>
     <string name="character_name_empty">Character name cannot be empty</string>
     <string name="character_created">Character created</string>
     <string name="character_saved">Character saved</string>

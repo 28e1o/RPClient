@@ -1,6 +1,8 @@
 package me.kafuuneko.rpclient.feature.llmprovideredit.presentation
 
 import me.kafuuneko.rpclient.feature.llmprovideredit.model.LLMProviderEditForm
+import me.kafuuneko.rpclient.libs.llm.catalog.LLMModelCatalogFailure
+import me.kafuuneko.rpclient.libs.llm.catalog.model.LLMAvailableModel
 
 /** LLM Provider 创建/编辑页面状态树。 */
 sealed class LLMProviderEditUiState {
@@ -13,6 +15,8 @@ sealed class LLMProviderEditUiState {
         val initialForm: LLMProviderEditForm = form,
         val loadState: LLMProviderEditLoadState = LLMProviderEditLoadState.None,
         val testState: LLMProviderEditTestState = LLMProviderEditTestState.None,
+        val modelCatalogState: LLMProviderEditModelCatalogState =
+            LLMProviderEditModelCatalogState.Idle,
         val dialogState: LLMProviderEditDialogState = LLMProviderEditDialogState.None
     ) : LLMProviderEditUiState()
 
@@ -46,10 +50,26 @@ sealed class LLMProviderEditTestState {
     data object Failed : LLMProviderEditTestState()
 }
 
+/** 模型目录查询的生命周期与可渲染结果。 */
+sealed class LLMProviderEditModelCatalogState {
+    data object Idle : LLMProviderEditModelCatalogState()
+    data object Loading : LLMProviderEditModelCatalogState()
+    data class Loaded(
+        val models: List<LLMAvailableModel>
+    ) : LLMProviderEditModelCatalogState()
+    data class Failed(
+        val failure: LLMModelCatalogFailure
+    ) : LLMProviderEditModelCatalogState()
+}
+
 /** Provider 编辑页互斥显示的确认对话框。 */
 sealed class LLMProviderEditDialogState {
     data object None : LLMProviderEditDialogState()
     data object UnsavedChangesConfirm : LLMProviderEditDialogState()
     data object ApiKeyEditor : LLMProviderEditDialogState()
     data object CustomHeadersEditor : LLMProviderEditDialogState()
+    data class ModelPicker(
+        val searchQuery: String,
+        val items: List<LLMAvailableModel>
+    ) : LLMProviderEditDialogState()
 }

@@ -365,6 +365,17 @@
     <string name="base_url">ベースURL</string>
     <string name="api_key">APIキー</string>
     <string name="model_name">モデル名</string>
+    <string name="query_models">モデルを取得</string>
+    <string name="cancel_model_query">モデル取得をキャンセル</string>
+    <string name="querying_models">利用可能なモデルを取得中…</string>
+    <string name="model_manual_input_hint">モデル ID を手動入力するか、プロバイダーから取得します</string>
+    <string name="available_models_found">%1$d 件のモデルが利用可能 · 選択</string>
+    <string name="no_available_models_returned">テキスト生成に利用できるモデルが返されませんでした。モデル ID は手動で入力できます</string>
+    <string name="choose_model">モデルを選択</string>
+    <string name="search_models">モデル名または ID を検索</string>
+    <string name="no_matching_models">一致するモデルがありません</string>
+    <string name="model_context_tokens">コンテキスト %1$,d</string>
+    <string name="model_max_output_tokens">最大出力 %1$,d</string>
     <string name="enabled">有効</string>
     <string name="enabled_desc">有効にすると、メインページの設定に表示されます</string>
     <string name="protocol">プロトコル</string>
@@ -400,6 +411,9 @@
     <string name="model_name_required">モデル名は必須です</string>
     <string name="generation_params_invalid">生成パラメータのフォーマットが無効です</string>
     <string name="max_tokens_must_be_less_than_context">最大トークン数はコンテキストトークン数未満にしてください</string>
+    <string name="model_query_unsupported">このサービスはモデル取得に対応していません。モデル ID を手動で入力してください</string>
+    <string name="model_query_invalid_response">プロバイダーから認識できないモデル一覧が返されました</string>
+    <string name="model_query_failed">利用可能なモデルを取得できませんでした</string>
     <string name="character_name_empty">キャラクター名を入力してください</string>
     <string name="character_created">キャラクターを作成しました</string>
     <string name="character_saved">キャラクターを保存しました</string>

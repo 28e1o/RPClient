@@ -2,14 +2,15 @@ package me.kafuuneko.rpclient.feature.llmprovideredit.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -17,14 +18,17 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.CloudDone
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.CloudDone
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -50,9 +54,12 @@ import me.kafuuneko.rpclient.feature.llmprovideredit.model.LLMProviderEditForm
 import me.kafuuneko.rpclient.feature.llmprovideredit.presentation.LLMProviderEditDialogState
 import me.kafuuneko.rpclient.feature.llmprovideredit.presentation.LLMProviderEditLoadState
 import me.kafuuneko.rpclient.feature.llmprovideredit.presentation.LLMProviderEditMode
+import me.kafuuneko.rpclient.feature.llmprovideredit.presentation.LLMProviderEditModelCatalogState
 import me.kafuuneko.rpclient.feature.llmprovideredit.presentation.LLMProviderEditTestState
 import me.kafuuneko.rpclient.feature.llmprovideredit.presentation.LLMProviderEditUiIntent
 import me.kafuuneko.rpclient.feature.llmprovideredit.presentation.LLMProviderEditUiState
+import me.kafuuneko.rpclient.libs.llm.catalog.LLMModelCatalogFailure
+import me.kafuuneko.rpclient.libs.llm.catalog.model.LLMAvailableModel
 import me.kafuuneko.rpclient.libs.llm.model.LLMProviderProtocol
 import me.kafuuneko.rpclient.libs.llm.model.LLMProviderType
 import me.kafuuneko.rpclient.libs.prompt.PromptPostProcessingMode
@@ -61,8 +68,8 @@ import me.kafuuneko.rpclient.ui.theme.AppTheme
 import me.kafuuneko.rpclient.ui.widgets.AppTopBar
 import me.kafuuneko.rpclient.ui.widgets.RpIconBubble
 import me.kafuuneko.rpclient.ui.widgets.RpPageTitle
-import me.kafuuneko.rpclient.ui.widgets.RpPanel as Panel
 import me.kafuuneko.rpclient.ui.widgets.RpSectionHeader
+import me.kafuuneko.rpclient.ui.widgets.RpPanel as Panel
 
 /** 模型供应商创建与编辑页 Compose 入口。 */
 @Composable
@@ -92,7 +99,9 @@ private fun LLMProviderEditNormal(
             .background(MaterialTheme.colorScheme.background)
     ) {
         AppTopBar(
-            title = if (state.mode == LLMProviderEditMode.Create) stringResource(R.string.create_model_title) else stringResource(R.string.edit_model_title),
+            title = if (state.mode == LLMProviderEditMode.Create) stringResource(R.string.create_model_title) else stringResource(
+                R.string.edit_model_title
+            ),
             onBack = { LLMProviderEditUiIntent.Back.emit() },
             actions = {
                 TopBarSaveButton(state, emit)
@@ -107,11 +116,15 @@ private fun LLMProviderEditNormal(
         ) {
             item {
                 RpPageTitle(
-                    title = if (state.mode == LLMProviderEditMode.Create) stringResource(R.string.create_model_subtitle) else state.form.name.ifBlank { stringResource(R.string.model_provider_title) },
+                    title = if (state.mode == LLMProviderEditMode.Create) stringResource(R.string.create_model_subtitle) else state.form.name.ifBlank {
+                        stringResource(
+                            R.string.model_provider_title
+                        )
+                    },
                     subtitle = stringResource(R.string.edit_model_subtitle)
                 )
             }
-            item { BasicPanel(state.form, emit) }
+            item { BasicPanel(state.form, state.modelCatalogState, emit) }
             item { ProtocolPanel(state.form, emit) }
             item { ParameterPanel(state.form, emit) }
             item { TestPanel(state.testState, emit) }
@@ -123,12 +136,19 @@ private fun LLMProviderEditNormal(
 @Composable
 private fun BasicPanel(
     form: LLMProviderEditForm,
+    modelCatalogState: LLMProviderEditModelCatalogState,
     emit: LLMProviderEditUiIntent.() -> Unit
 ) {
     Panel {
         RpSectionHeader(title = stringResource(R.string.basic_info))
-        FormTextField(stringResource(R.string.name), form.name) { LLMProviderEditUiIntent.ChangeName(it).emit() }
-        FormTextField(stringResource(R.string.base_url), form.baseUrl) { LLMProviderEditUiIntent.ChangeBaseUrl(it).emit() }
+        FormTextField(
+            stringResource(R.string.name),
+            form.name
+        ) { LLMProviderEditUiIntent.ChangeName(it).emit() }
+        FormTextField(
+            stringResource(R.string.base_url),
+            form.baseUrl
+        ) { LLMProviderEditUiIntent.ChangeBaseUrl(it).emit() }
         CredentialControl(
             title = stringResource(R.string.api_key),
             hasExistingValue = form.hasExistingApiKey,
@@ -137,7 +157,11 @@ private fun BasicPanel(
             onClear = { LLMProviderEditUiIntent.ClearApiKey.emit() },
             onKeepExisting = { LLMProviderEditUiIntent.KeepExistingApiKey.emit() }
         )
-        FormTextField(stringResource(R.string.model_name), form.model) { LLMProviderEditUiIntent.ChangeModel(it).emit() }
+        ModelField(
+            value = form.model,
+            catalogState = modelCatalogState,
+            emit = emit
+        )
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(stringResource(R.string.enabled), style = MaterialTheme.typography.titleSmall)
@@ -151,6 +175,136 @@ private fun BasicPanel(
                 checked = form.isEnabled,
                 onCheckedChange = { LLMProviderEditUiIntent.ToggleEnabled(it).emit() }
             )
+        }
+    }
+}
+
+@Composable
+private fun ModelField(
+    value: String,
+    catalogState: LLMProviderEditModelCatalogState,
+    emit: LLMProviderEditUiIntent.() -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        OutlinedTextField(
+            modifier = Modifier.fillMaxWidth(),
+            value = value,
+            onValueChange = {
+                LLMProviderEditUiIntent.ChangeModel(it).emit()
+            },
+            label = { Text(stringResource(R.string.model_name)) },
+            supportingText = {
+                ModelCatalogSupportingText(catalogState, emit)
+            },
+            trailingIcon = {
+                val loading =
+                    catalogState is LLMProviderEditModelCatalogState.Loading
+                IconButton(
+                    onClick = {
+                        if (loading) {
+                            LLMProviderEditUiIntent.CancelModelQuery.emit()
+                        } else {
+                            LLMProviderEditUiIntent.QueryModels.emit()
+                        }
+                    }
+                ) {
+                    Icon(
+                        imageVector = if (loading) {
+                            Icons.Rounded.Close
+                        } else {
+                            Icons.Rounded.Refresh
+                        },
+                        contentDescription = stringResource(
+                            if (loading) {
+                                R.string.cancel_model_query
+                            } else {
+                                R.string.query_models
+                            }
+                        )
+                    )
+                }
+            },
+            shape = RoundedCornerShape(12.dp)
+        )
+    }
+}
+
+@Composable
+private fun ModelCatalogSupportingText(
+    state: LLMProviderEditModelCatalogState,
+    emit: LLMProviderEditUiIntent.() -> Unit
+) {
+    when (state) {
+        LLMProviderEditModelCatalogState.Idle -> {
+            Text(stringResource(R.string.model_manual_input_hint))
+        }
+
+        LLMProviderEditModelCatalogState.Loading -> {
+            Text(stringResource(R.string.querying_models))
+        }
+
+        is LLMProviderEditModelCatalogState.Loaded -> {
+            if (state.models.isEmpty()) {
+                Text(stringResource(R.string.no_available_models_returned))
+            } else {
+                Text(
+                    text = stringResource(
+                        R.string.available_models_found,
+                        state.models.size
+                    ),
+                    modifier = Modifier.clickable {
+                        LLMProviderEditUiIntent.ShowModelPicker.emit()
+                    },
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+
+        is LLMProviderEditModelCatalogState.Failed -> {
+            Text(
+                text = modelCatalogFailureText(state.failure),
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+    }
+}
+
+@Composable
+private fun modelCatalogFailureText(failure: LLMModelCatalogFailure): String {
+    return when (failure) {
+        LLMModelCatalogFailure.Unauthorized -> {
+            stringResource(R.string.generation_error_unauthorized)
+        }
+
+        LLMModelCatalogFailure.Forbidden -> {
+            stringResource(R.string.generation_error_forbidden)
+        }
+
+        LLMModelCatalogFailure.RateLimited -> {
+            stringResource(R.string.generation_error_rate_limited)
+        }
+
+        LLMModelCatalogFailure.UnsupportedEndpoint -> {
+            stringResource(R.string.model_query_unsupported)
+        }
+
+        LLMModelCatalogFailure.Network -> {
+            stringResource(R.string.generation_error_network)
+        }
+
+        LLMModelCatalogFailure.InvalidResponse -> {
+            stringResource(R.string.model_query_invalid_response)
+        }
+
+        is LLMModelCatalogFailure.HttpFailure -> {
+            stringResource(
+                R.string.generation_error_http,
+                failure.statusCode
+            )
+        }
+
+        LLMModelCatalogFailure.Unknown -> {
+            stringResource(R.string.model_query_failed)
         }
     }
 }
@@ -207,6 +361,7 @@ private fun CredentialControl(
                         R.string.credential_not_set
                     }
                 )
+
                 CredentialEditMode.Replace -> stringResource(R.string.credential_replace_on_save)
                 CredentialEditMode.Clear -> stringResource(R.string.credential_clear_on_save)
             },
@@ -366,7 +521,10 @@ private fun TestPanel(
                     .padding(horizontal = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                Text(stringResource(R.string.model_test), style = MaterialTheme.typography.titleSmall)
+                Text(
+                    stringResource(R.string.model_test),
+                    style = MaterialTheme.typography.titleSmall
+                )
                 Text(
                     text = when (testState) {
                         LLMProviderEditTestState.None -> stringResource(R.string.send_short_message)
@@ -409,7 +567,11 @@ private fun ActionPanel(
         onClick = { LLMProviderEditUiIntent.SaveClick.emit() }
     ) {
         Icon(Icons.Rounded.Check, contentDescription = null)
-        Text(if (state.mode == LLMProviderEditMode.Create) stringResource(R.string.create) else stringResource(R.string.save))
+        Text(
+            if (state.mode == LLMProviderEditMode.Create) stringResource(R.string.create) else stringResource(
+                R.string.save
+            )
+        )
     }
 }
 
@@ -455,6 +617,7 @@ private fun DialogSwitch(
                 }
             }
         )
+
         LLMProviderEditDialogState.ApiKeyEditor -> SensitiveValueEditorDialog(
             title = stringResource(R.string.api_key_editor_title),
             label = stringResource(R.string.api_key),
@@ -463,6 +626,7 @@ private fun DialogSwitch(
             onConfirm = { LLMProviderEditUiIntent.ConfirmApiKeyReplacement(it).emit() },
             onDismiss = { LLMProviderEditUiIntent.DismissDialog.emit() }
         )
+
         LLMProviderEditDialogState.CustomHeadersEditor -> SensitiveValueEditorDialog(
             title = stringResource(R.string.custom_headers_editor_title),
             label = stringResource(R.string.custom_headers_json),
@@ -473,7 +637,115 @@ private fun DialogSwitch(
             },
             onDismiss = { LLMProviderEditUiIntent.DismissDialog.emit() }
         )
+
+        is LLMProviderEditDialogState.ModelPicker -> ModelPickerDialog(
+            state = dialogState,
+            emit = emit
+        )
     }
+}
+
+@Composable
+private fun ModelPickerDialog(
+    state: LLMProviderEditDialogState.ModelPicker,
+    emit: LLMProviderEditUiIntent.() -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = { LLMProviderEditUiIntent.DismissDialog.emit() },
+        title = { Text(stringResource(R.string.choose_model)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = state.searchQuery,
+                    onValueChange = {
+                        LLMProviderEditUiIntent.ChangeModelSearch(it).emit()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text(stringResource(R.string.search_models)) },
+                    leadingIcon = {
+                        Icon(Icons.Rounded.Search, contentDescription = null)
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp)
+                )
+                if (state.items.isEmpty()) {
+                    Text(
+                        stringResource(R.string.no_matching_models),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 420.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        items(state.items, key = { it.id }) { model ->
+                            ModelPickerItem(model, emit)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(
+                onClick = { LLMProviderEditUiIntent.DismissDialog.emit() }
+            ) {
+                Text(stringResource(R.string.cancel))
+            }
+        }
+    )
+}
+
+@Composable
+private fun ModelPickerItem(
+    model: LLMAvailableModel,
+    emit: LLMProviderEditUiIntent.() -> Unit
+) {
+    TextButton(
+        onClick = {
+            LLMProviderEditUiIntent.SelectAvailableModel(model.id).emit()
+        },
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.Start
+        ) {
+            Text(
+                text = model.displayName,
+                style = MaterialTheme.typography.titleSmall
+            )
+            if (model.displayName != model.id) {
+                Text(
+                    text = model.id,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.62f)
+                )
+            }
+            ModelMetadataText(model)
+        }
+    }
+}
+
+@Composable
+private fun ModelMetadataText(model: LLMAvailableModel) {
+    val metadata = listOfNotNull(
+        model.contextTokens?.let {
+            stringResource(R.string.model_context_tokens, it)
+        },
+        model.maxOutputTokens?.let {
+            stringResource(R.string.model_max_output_tokens, it)
+        }
+    )
+    if (metadata.isEmpty()) return
+    Text(
+        text = metadata.joinToString(" · "),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.62f)
+    )
 }
 
 @Composable

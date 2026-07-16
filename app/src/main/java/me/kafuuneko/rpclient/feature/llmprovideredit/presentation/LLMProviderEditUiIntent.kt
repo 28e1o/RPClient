@@ -28,6 +28,16 @@ sealed class LLMProviderEditUiIntent {
 
     data class ChangeModel(val value: String) : LLMProviderEditUiIntent()
 
+    data object QueryModels : LLMProviderEditUiIntent()
+
+    data object CancelModelQuery : LLMProviderEditUiIntent()
+
+    data object ShowModelPicker : LLMProviderEditUiIntent()
+
+    data class ChangeModelSearch(val value: String) : LLMProviderEditUiIntent()
+
+    data class SelectAvailableModel(val modelId: String) : LLMProviderEditUiIntent()
+
     data object ShowCustomHeadersEditor : LLMProviderEditUiIntent()
 
     data class ConfirmCustomHeadersReplacement(val value: String) : LLMProviderEditUiIntent()
