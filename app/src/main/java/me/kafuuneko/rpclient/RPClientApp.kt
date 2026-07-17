@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.room.Room
 import com.chibatching.kotpref.Kotpref
 import com.google.gson.Gson
+import me.kafuuneko.rpclient.libs.AppModel
 import me.kafuuneko.rpclient.libs.character.CharacterCardRepository
 import me.kafuuneko.rpclient.libs.groupchat.GroupChatOutputSanitizer
 import me.kafuuneko.rpclient.libs.groupchat.GroupChatPromptBuilder
@@ -14,6 +15,8 @@ import me.kafuuneko.rpclient.libs.llm.LLMClientFactory
 import me.kafuuneko.rpclient.libs.llm.catalog.LLMModelCatalogClientFactory
 import me.kafuuneko.rpclient.libs.llm.catalog.LLMModelCatalogRepository
 import me.kafuuneko.rpclient.libs.prompt.ChatPromptBuilder
+import me.kafuuneko.rpclient.libs.prompt.ExampleDialogueBehavior
+import me.kafuuneko.rpclient.libs.prompt.ExampleDialogueBehaviorProvider
 import me.kafuuneko.rpclient.libs.prompt.FormattedHistoryBuilder
 import me.kafuuneko.rpclient.libs.prompt.PromptMacroResolver
 import me.kafuuneko.rpclient.libs.prompt.PromptRequestFinalizer
@@ -57,7 +60,7 @@ class RPClientApp : Application() {
  *
  * 业务对象保持无 Activity 引用；页面 ViewModel 通过 KoinComponent 按需获取这些实例。
  */
-private val appModules = module {
+internal val appModules = module {
     singleOf(::AppLibs)
 
     single {
@@ -78,6 +81,14 @@ private val appModules = module {
     singleOf(::WorldBookActivator)
     singleOf(::PromptTokenizerRegistry)
     single { PromptRequestFinalizer(get<PromptTokenizerRegistry>()) }
+    single<ExampleDialogueBehaviorProvider> {
+        ExampleDialogueBehaviorProvider {
+            ExampleDialogueBehavior.fromPersistedValue(
+                runCatching { AppModel.exampleDialogueBehavior }
+                    .getOrDefault(ExampleDialogueBehavior.default.persistedValue)
+            )
+        }
+    }
     singleOf(::ChatPromptBuilder)
     singleOf(::SummaryPromptBuilder)
     singleOf(::GroupChatPromptBuilder)

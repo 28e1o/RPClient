@@ -69,6 +69,28 @@ class WorldBookBudgeterTest {
     }
 
     @Test
+    fun disabledExamplesAreRemovedBeforeBudgetSelection() {
+        val example = entry(id = 1L, content = "x".repeat(80), order = 100)
+        val normal = entry(id = 2L, content = "n".repeat(50), order = 10)
+        val activated = WorldBookActivationResult(
+            activatedEntries = listOf(example, normal),
+            beforeCharacter = listOf(normal),
+            exampleBefore = listOf(example)
+        ).filterForExampleBehavior(ExampleDialogueBehavior.Disabled)
+
+        val selection = fitWorldInfoToBudget(
+            result = activated,
+            globalTokenBudget = 100,
+            promptTokenBudget = 100,
+            lorebooks = emptyMap(),
+            tokenizer = tokenizer
+        )
+
+        assertEquals(listOf(normal), selection.result.activatedEntries)
+        assertTrue(selection.omittedItems.isEmpty())
+    }
+
+    @Test
     fun timedStateEntriesFollowFinalPromptSources() {
         val retained = entry(id = 1L, content = "retained", order = 30)
         val omitted = entry(id = 2L, content = "omitted", order = 20)

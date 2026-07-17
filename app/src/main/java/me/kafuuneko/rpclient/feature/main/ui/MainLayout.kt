@@ -94,6 +94,7 @@ import me.kafuuneko.rpclient.feature.main.presentation.MainPage
 import me.kafuuneko.rpclient.feature.main.presentation.MainSettingsState
 import me.kafuuneko.rpclient.feature.main.presentation.MainUiIntent
 import me.kafuuneko.rpclient.feature.main.presentation.MainUiState
+import me.kafuuneko.rpclient.libs.prompt.ExampleDialogueBehavior
 import me.kafuuneko.rpclient.libs.prompt.PromptPostProcessingMode
 import me.kafuuneko.rpclient.libs.prompt.SummaryInjectionPosition
 import me.kafuuneko.rpclient.libs.prompt.SummaryInjectionRole
@@ -966,6 +967,29 @@ private fun PromptBehaviorPanel(
                     onClick = { MainUiIntent.SelectPostProcessingMode(mode).emit() }
                 )
             }
+            Text(
+                text = stringResource(R.string.prompt_example_behavior_title),
+                style = MaterialTheme.typography.titleSmall
+            )
+            Text(
+                text = stringResource(R.string.prompt_example_behavior_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.58f)
+            )
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                ExampleDialogueBehavior.entries.forEach { behavior ->
+                    FilterChip(
+                        selected = behavior == state.exampleDialogueBehavior,
+                        onClick = {
+                            MainUiIntent.SelectExampleDialogueBehavior(behavior).emit()
+                        },
+                        label = { Text(stringResource(behavior.titleRes())) }
+                    )
+                }
+            }
             SettingSwitchRow(
                 icon = Icons.Rounded.Compress,
                 title = stringResource(R.string.prompt_include_think_context_title),
@@ -1480,6 +1504,14 @@ private fun PromptPostProcessingMode.descriptionRes(): Int {
     }
 }
 
+private fun ExampleDialogueBehavior.titleRes(): Int {
+    return when (this) {
+        ExampleDialogueBehavior.Normal -> R.string.prompt_example_behavior_normal
+        ExampleDialogueBehavior.Pinned -> R.string.prompt_example_behavior_pinned
+        ExampleDialogueBehavior.Disabled -> R.string.prompt_example_behavior_disabled
+    }
+}
+
 private fun SummaryInjectionPosition.titleRes(): Int {
     return when (this) {
         SummaryInjectionPosition.None -> R.string.summary_position_none
@@ -1552,6 +1584,7 @@ private fun MainLayoutPreview() {
                     contextTokens = 8192,
                     streamEnabled = true,
                     promptPostProcessingMode = PromptPostProcessingMode.None,
+                    exampleDialogueBehavior = ExampleDialogueBehavior.default,
                     includeThinkInContext = false,
                     debugModeEnabled = false,
                     autoSummaryEnabled = false,

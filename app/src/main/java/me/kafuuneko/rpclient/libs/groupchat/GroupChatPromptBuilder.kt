@@ -6,11 +6,14 @@ import me.kafuuneko.rpclient.libs.llm.model.LLMGenerationRequest
 import me.kafuuneko.rpclient.libs.llm.model.LLMMessage
 import me.kafuuneko.rpclient.libs.llm.model.LLMMessageRole
 import me.kafuuneko.rpclient.libs.prompt.DEFAULT_STRICT_PROMPT_PLACEHOLDER
+import me.kafuuneko.rpclient.libs.prompt.ExampleDialogueBehavior
+import me.kafuuneko.rpclient.libs.prompt.ExampleDialogueBehaviorProvider
 import me.kafuuneko.rpclient.libs.prompt.PromptInspection
 import me.kafuuneko.rpclient.libs.prompt.PromptMessageDraft
 import me.kafuuneko.rpclient.libs.prompt.PromptPostProcessingMode
 import me.kafuuneko.rpclient.libs.prompt.PromptPostProcessingNames
 import me.kafuuneko.rpclient.libs.prompt.PromptRequestFinalizer
+import me.kafuuneko.rpclient.libs.prompt.PromptRetentionPolicy
 import me.kafuuneko.rpclient.libs.prompt.PromptSource
 import me.kafuuneko.rpclient.libs.prompt.PromptSourceKind
 import me.kafuuneko.rpclient.libs.prompt.SummaryInjectionPosition
@@ -22,6 +25,7 @@ import me.kafuuneko.rpclient.libs.prompt.WorldBookScanMessage
 import me.kafuuneko.rpclient.libs.prompt.WorldBookScanContext
 import me.kafuuneko.rpclient.libs.prompt.fitWorldInfoToBudget
 import me.kafuuneko.rpclient.libs.prompt.filterEntries
+import me.kafuuneko.rpclient.libs.prompt.filterForExampleBehavior
 import me.kafuuneko.rpclient.libs.prompt.mapEntryContent
 import me.kafuuneko.rpclient.libs.prompt.parseExampleMessages
 import me.kafuuneko.rpclient.libs.prompt.retainStateEntries
@@ -86,7 +90,9 @@ class GroupChatPromptBuilder(
     private val mRegexRuntime: RegexScriptRuntime = RegexScriptRuntime(
         me.kafuuneko.rpclient.libs.regex.RegexScriptEngine()
     ),
-    private val mRequestFinalizer: PromptRequestFinalizer = PromptRequestFinalizer()
+    private val mRequestFinalizer: PromptRequestFinalizer = PromptRequestFinalizer(),
+    private val mExampleDialogueBehaviorProvider: ExampleDialogueBehaviorProvider =
+        ExampleDialogueBehaviorProvider { ExampleDialogueBehavior.default }
 ) {
     /** 构建可直接发送给模型的群聊生成请求。 */
     fun build(context: GroupChatPromptContext): LLMGenerationRequest {
@@ -95,6 +101,7 @@ class GroupChatPromptBuilder(
 
     /** 构建生成请求，并携带世界书激活后的下一状态。 */
     fun buildWithMetadata(context: GroupChatPromptContext): GroupChatPromptBuildResult {
+        val exampleBehavior = mExampleDialogueBehaviorProvider.current()
         val maxPromptTokens = (
             context.provider.contextTokens - context.provider.maxTokens
         ).coerceAtLeast(0)
@@ -110,18 +117,20 @@ class GroupChatPromptBuilder(
             groupNames = context.memberNames()
         )
         val rawWorldInfo = activateWorldInfo(context)
-        val activatedWorldInfo = rawWorldInfo.mapEntryContent { entry ->
-            val result = mRegexRuntime.execute(
-                input = entry.content,
-                scripts = context.regexScripts,
-                placement = RegexPlacement.WorldInfo,
-                mode = RegexExecutionMode.Prompt,
-                macros = regexMacros
-            )
-            regexHits += result.hits
-            regexErrors += result.errors
-            entry.copy(content = result.text)
-        }
+        val activatedWorldInfo = rawWorldInfo
+            .mapEntryContent { entry ->
+                val result = mRegexRuntime.execute(
+                    input = entry.content,
+                    scripts = context.regexScripts,
+                    placement = RegexPlacement.WorldInfo,
+                    mode = RegexExecutionMode.Prompt,
+                    macros = regexMacros
+                )
+                regexHits += result.hits
+                regexErrors += result.errors
+                entry.copy(content = result.text)
+            }
+            .filterForExampleBehavior(exampleBehavior)
         val worldSelection = fitWorldInfoToBudget(
             result = activatedWorldInfo,
             globalTokenBudget = worldBudget,
@@ -130,7 +139,7 @@ class GroupChatPromptBuilder(
             tokenizer = mRequestFinalizer.tokenizerFor(context.provider)
         )
         val worldInfo = worldSelection.result
-        val fixedMessages = buildFixedMessages(context, worldInfo)
+        val fixedMessages = buildFixedMessages(context, worldInfo, exampleBehavior)
         val inChatPieces = buildInChatPieces(context, worldInfo)
         val history = sanitizeHistory(context.messages).mapIndexed { index, message ->
             val depth = context.messages.lastIndex - index
@@ -163,7 +172,7 @@ class GroupChatPromptBuilder(
         val historyMessages = history.mapIndexed { index, message ->
             message.toPromptDraft(
                 userName = context.session.userName,
-                retentionPriority = PRIORITY_HISTORY_BASE + index,
+                retentionPriority = PromptRetentionPolicy.HISTORY,
                 canDrop = index != history.lastIndex
             )
         }.toMutableList()
@@ -275,7 +284,8 @@ class GroupChatPromptBuilder(
     /** 构建位于聊天历史前后、位置固定的系统消息。 */
     private fun buildFixedMessages(
         context: GroupChatPromptContext,
-        worldInfo: WorldBookActivationResult
+        worldInfo: WorldBookActivationResult,
+        exampleBehavior: ExampleDialogueBehavior
     ): PromptSections {
         val before = mutableListOf<PromptMessageDraft>()
         val after = mutableListOf<PromptMessageDraft>()
@@ -320,20 +330,27 @@ class GroupChatPromptBuilder(
                 PRIORITY_WORLD_INFO
             )
         }
-        worldInfo.exampleBefore.forEach {
-            before += optionalSystem(
-                formatWorldInfo(it.content),
-                PromptSource(PromptSourceKind.WorldInfo, it.name, it.id),
-                PRIORITY_EXAMPLE
-            )
+        val examplePriority = exampleBehavior
+            .takeUnless { it == ExampleDialogueBehavior.Disabled }
+            ?.let(PromptRetentionPolicy::examplePriority)
+        examplePriority?.let { priority ->
+            worldInfo.exampleBefore.forEach {
+                before += optionalSystem(
+                    formatWorldInfo(it.content),
+                    PromptSource(PromptSourceKind.WorldInfo, it.name, it.id),
+                    priority
+                )
+            }
         }
-        buildExamples(context).forEach { before += it }
-        worldInfo.exampleAfter.forEach {
-            before += optionalSystem(
-                formatWorldInfo(it.content),
-                PromptSource(PromptSourceKind.WorldInfo, it.name, it.id),
-                PRIORITY_EXAMPLE
-            )
+        buildExamples(context, exampleBehavior).forEach { before += it }
+        examplePriority?.let { priority ->
+            worldInfo.exampleAfter.forEach {
+                before += optionalSystem(
+                    formatWorldInfo(it.content),
+                    PromptSource(PromptSourceKind.WorldInfo, it.name, it.id),
+                    priority
+                )
+            }
         }
         context.newGroupChatPrompt().takeIf {
             it.isNotBlank() && context.messages.isNotEmpty()
@@ -409,7 +426,12 @@ class GroupChatPromptBuilder(
     }
 
     /** 将成员角色卡中的示例对话转换为模型消息。 */
-    private fun buildExamples(context: GroupChatPromptContext): List<PromptMessageDraft> {
+    private fun buildExamples(
+        context: GroupChatPromptContext,
+        behavior: ExampleDialogueBehavior
+    ): List<PromptMessageDraft> {
+        if (behavior == ExampleDialogueBehavior.Disabled) return emptyList()
+        val retentionPriority = PromptRetentionPolicy.examplePriority(behavior)
         return context.cardMembers().flatMap { member ->
             member.character.examplesOfDialogue
                 .split("<START>")
@@ -425,7 +447,7 @@ class GroupChatPromptBuilder(
                                         PromptSourceKind.ExampleDialogue,
                                         member.character.name
                                     ),
-                                    PRIORITY_EXAMPLE
+                                    retentionPriority
                                 )
                             )
                         }
@@ -442,7 +464,7 @@ class GroupChatPromptBuilder(
                                         PromptSourceKind.ExampleDialogue,
                                         member.character.name
                                     ),
-                                    PRIORITY_EXAMPLE
+                                    retentionPriority
                                 )
                             )
                         } else {
@@ -460,7 +482,7 @@ class GroupChatPromptBuilder(
                                             PromptSourceKind.ExampleDialogue,
                                             member.character.name
                                         ),
-                                        retentionPriority = PRIORITY_EXAMPLE,
+                                        retentionPriority = retentionPriority,
                                         canDrop = true
                                     )
                                 )
@@ -890,11 +912,9 @@ class GroupChatPromptBuilder(
     )
 
     private companion object {
-        const val PRIORITY_EXAMPLE = 10
         const val PRIORITY_AUXILIARY = 20
         const val PRIORITY_NEW_CHAT = 30
         const val PRIORITY_WORLD_INFO = 40
-        const val PRIORITY_HISTORY_BASE = 100
         const val PRIORITY_USER_NOTE = 300
         const val PRIORITY_CHARACTER_NOTE = 310
         const val PRIORITY_ESSENTIAL = 1_000

@@ -28,7 +28,9 @@ class ChatPromptBuilder(
     private val mRegexRuntime: RegexScriptRuntime = RegexScriptRuntime(
         me.kafuuneko.rpclient.libs.regex.RegexScriptEngine()
     ),
-    private val mRequestFinalizer: PromptRequestFinalizer = PromptRequestFinalizer()
+    private val mRequestFinalizer: PromptRequestFinalizer = PromptRequestFinalizer(),
+    private val mExampleDialogueBehaviorProvider: ExampleDialogueBehaviorProvider =
+        ExampleDialogueBehaviorProvider { ExampleDialogueBehavior.default }
 ) {
     /**
      * 构建最终提交给模型的请求。
@@ -48,6 +50,7 @@ class ChatPromptBuilder(
      * 4. 尾部指令区：post-history instructions。
      */
     fun buildWithMetadata(context: PromptBuildContext): PromptBuildResult {
+        val exampleBehavior = mExampleDialogueBehaviorProvider.current()
         val maxPromptTokens = (context.maxContextTokens - context.maxResponseTokens).coerceAtLeast(0)
         val worldBudget = maxPromptTokens * readWorldInfoBudgetPercent().coerceIn(0, 40) / 100
         val tokenizer = mRequestFinalizer.tokenizerFor(context.provider)
@@ -73,6 +76,7 @@ class ChatPromptBuilder(
                 regexErrors += result.errors
                 entry.copy(content = result.text)
             }
+            .filterForExampleBehavior(exampleBehavior)
         val worldSelection = fitWorldInfoToBudget(
             result = activatedWorldInfo,
             globalTokenBudget = worldBudget,
@@ -86,7 +90,7 @@ class ChatPromptBuilder(
         }
         val fixedMessages = buildFixedMessages(context, worldInfo)
         val inChatPieces = buildInChatPieces(context, worldInfo)
-        val examplePieces = buildExamplePieces(context, worldInfo)
+        val examplePieces = buildExamplePieces(context, worldInfo, exampleBehavior)
         val historyMessages = context.messages.sanitizeThinkBlocks().mapIndexed { index, message ->
             val depth = context.messages.lastIndex - index
             val result = when (message.source) {
@@ -385,8 +389,11 @@ class ChatPromptBuilder(
 
     private fun buildExamplePieces(
         context: PromptBuildContext,
-        worldInfo: WorldBookActivationResult
+        worldInfo: WorldBookActivationResult,
+        behavior: ExampleDialogueBehavior
     ): List<PromptPiece> {
+        if (behavior == ExampleDialogueBehavior.Disabled) return emptyList()
+        val retentionPriority = PromptRetentionPolicy.examplePriority(behavior)
         // 示例对话以 <START> 分块，每个块作为独立的上下文预算单元。
         val blocks = buildList {
             worldInfo.exampleBefore.forEach { add(it.content) }
@@ -404,7 +411,7 @@ class ChatPromptBuilder(
                                 LLMMessageRole.System,
                                 marker,
                                 PromptSource(PromptSourceKind.ExampleDialogue),
-                                PRIORITY_EXAMPLE,
+                                retentionPriority,
                                 true
                             )
                         )
@@ -420,7 +427,7 @@ class ChatPromptBuilder(
                                 LLMMessageRole.System,
                                 block,
                                 PromptSource(PromptSourceKind.ExampleDialogue),
-                                PRIORITY_EXAMPLE,
+                                retentionPriority,
                                 true
                             )
                         )
@@ -431,7 +438,7 @@ class ChatPromptBuilder(
                                     message.role,
                                     message.content,
                                     PromptSource(PromptSourceKind.ExampleDialogue),
-                                    PRIORITY_EXAMPLE,
+                                    retentionPriority,
                                     true
                                 )
                             )
@@ -469,7 +476,7 @@ class ChatPromptBuilder(
         val lastHistoryIndex = historyMessages.lastIndex
         val chatMessages = historyMessages.mapIndexed { index, message ->
             message.toPromptDraft(
-                retentionPriority = PRIORITY_HISTORY_BASE + index,
+                retentionPriority = PromptRetentionPolicy.HISTORY,
                 canDrop = index != lastHistoryIndex
             )
         }.toMutableList()
@@ -831,11 +838,9 @@ class ChatPromptBuilder(
 
     private companion object {
         const val DEFAULT_WORLD_INFO_BUDGET_PERCENT = 25
-        const val PRIORITY_EXAMPLE = 10
         const val PRIORITY_AUXILIARY = 20
         const val PRIORITY_NEW_CHAT = 30
         const val PRIORITY_WORLD_INFO = 40
-        const val PRIORITY_HISTORY_BASE = 100
         const val PRIORITY_USER_NOTE = 300
         const val PRIORITY_CHARACTER_NOTE = 310
         const val PRIORITY_ESSENTIAL = 1_000

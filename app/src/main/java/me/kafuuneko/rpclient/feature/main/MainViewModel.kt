@@ -35,6 +35,7 @@ import me.kafuuneko.rpclient.libs.AppModel
 import me.kafuuneko.rpclient.libs.core.AppViewEvent
 import me.kafuuneko.rpclient.libs.core.CoreViewModelWithEvent
 import me.kafuuneko.rpclient.libs.core.UiIntentObserver
+import me.kafuuneko.rpclient.libs.prompt.ExampleDialogueBehavior
 import me.kafuuneko.rpclient.libs.prompt.PromptPostProcessingMode
 import me.kafuuneko.rpclient.libs.prompt.SummaryInjectionPosition
 import me.kafuuneko.rpclient.libs.prompt.SummaryInjectionRole
@@ -102,6 +103,7 @@ class MainViewModel : CoreViewModelWithEvent<MainUiIntent, MainUiState>(
                 streamEnabled = AppModel.streamEnabled,
                 promptPostProcessingMode = selectedProvider?.postProcessingMode()
                     ?: PromptPostProcessingMode.None,
+                exampleDialogueBehavior = readExampleDialogueBehavior(),
                 includeThinkInContext = AppModel.includeThinkInContext,
                 debugModeEnabled = AppModel.debugModeEnabled,
                 autoSummaryEnabled = AppModel.autoSummaryEnabled,
@@ -574,6 +576,19 @@ class MainViewModel : CoreViewModelWithEvent<MainUiIntent, MainUiState>(
         ).setup()
     }
 
+    @UiIntentObserver(MainUiIntent.SelectExampleDialogueBehavior::class)
+    private fun onSelectExampleDialogueBehavior(
+        intent: MainUiIntent.SelectExampleDialogueBehavior
+    ) {
+        val uiState = getOrNull<MainUiState.Normal>() ?: return
+        AppModel.exampleDialogueBehavior = intent.behavior.persistedValue
+        uiState.copy(
+            settingsState = uiState.settingsState.copy(
+                exampleDialogueBehavior = intent.behavior
+            )
+        ).setup()
+    }
+
     @UiIntentObserver(MainUiIntent.ToggleDebugModeEnabled::class)
     private fun onToggleDebugModeEnabled(intent: MainUiIntent.ToggleDebugModeEnabled) {
         val uiState = getOrNull<MainUiState.Normal>() ?: return
@@ -640,6 +655,7 @@ class MainViewModel : CoreViewModelWithEvent<MainUiIntent, MainUiState>(
             streamEnabled = AppModel.streamEnabled,
             promptPostProcessingMode = selectedProvider?.postProcessingMode()
                 ?: PromptPostProcessingMode.None,
+            exampleDialogueBehavior = readExampleDialogueBehavior(),
             includeThinkInContext = AppModel.includeThinkInContext,
             debugModeEnabled = AppModel.debugModeEnabled,
             autoSummaryEnabled = AppModel.autoSummaryEnabled,
@@ -669,6 +685,10 @@ class MainViewModel : CoreViewModelWithEvent<MainUiIntent, MainUiState>(
 
     private fun readSummaryInjectionPosition(): SummaryInjectionPosition {
         return SummaryInjectionPosition.fromPersistedValue(AppModel.summaryInjectionPosition)
+    }
+
+    private fun readExampleDialogueBehavior(): ExampleDialogueBehavior {
+        return ExampleDialogueBehavior.fromPersistedValue(AppModel.exampleDialogueBehavior)
     }
 
     private fun readSummaryInjectionRole(): SummaryInjectionRole {

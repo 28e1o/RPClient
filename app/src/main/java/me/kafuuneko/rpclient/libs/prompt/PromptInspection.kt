@@ -60,7 +60,9 @@ data class PromptOmittedItem(
 enum class PromptTokenizerStrategy {
     /** 根据模型选择已知编码器，统计结果更接近供应商实际值。 */
     ModelAware,
-    /** 使用 UTF-8 字节上界，宁可少装内容也不冒超出上下文的风险。 */
+    /** 使用其他离线 BPE 作为代理，并应用 Provider 配置的估算预留率。 */
+    Estimated,
+    /** 预留给将来可证明不会低估的统计实现。 */
     Conservative
 }
 
@@ -83,6 +85,7 @@ data class PromptInspection(
     val model: String,
     val tokenizerName: String,
     val tokenizerStrategy: PromptTokenizerStrategy,
+    val tokenizerReservePercent: Int = 0,
     val postProcessingMode: PromptPostProcessingMode,
     val contextLimit: Int,
     val responseReserve: Int,

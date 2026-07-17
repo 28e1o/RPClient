@@ -4,7 +4,10 @@ import me.kafuuneko.rpclient.libs.llm.model.LLMProviderCapabilities
 import me.kafuuneko.rpclient.libs.llm.model.LLMProviderProtocol
 import me.kafuuneko.rpclient.libs.llm.model.LLMProviderType
 import me.kafuuneko.rpclient.libs.prompt.PromptPostProcessingMode
+import me.kafuuneko.rpclient.libs.room.entity.DEFAULT_TOKEN_ESTIMATE_RESERVE_PERCENT
 import me.kafuuneko.rpclient.libs.room.entity.LLMProvider
+import me.kafuuneko.rpclient.libs.room.entity.MAX_TOKEN_ESTIMATE_RESERVE_PERCENT
+import me.kafuuneko.rpclient.libs.room.entity.MIN_TOKEN_ESTIMATE_RESERVE_PERCENT
 
 /**
  * LLM Provider 编辑页的可渲染表单。
@@ -27,6 +30,7 @@ data class LLMProviderEditForm(
     val topP: String = "1.0",
     val maxTokens: String = "1200",
     val contextTokens: String = "8192",
+    val tokenEstimateReservePercent: Int = DEFAULT_TOKEN_ESTIMATE_RESERVE_PERCENT,
     val sendTemperature: Boolean = true,
     val sendTopP: Boolean = true,
     val promptPostProcessingMode: PromptPostProcessingMode = PromptPostProcessingMode.None,
@@ -44,6 +48,9 @@ data class LLMProviderEditForm(
         val capabilities = LLMProviderCapabilities.forProtocol(protocol)
         if (parsedMaxTokens <= 0 || parsedContextTokens <= 0) return null
         if (parsedMaxTokens >= parsedContextTokens) return null
+        if (tokenEstimateReservePercent !in
+            MIN_TOKEN_ESTIMATE_RESERVE_PERCENT..MAX_TOKEN_ESTIMATE_RESERVE_PERCENT
+        ) return null
         if (sendTemperature && parsedTemperature !in capabilities.temperatureRange) return null
         if (sendTopP && parsedTopP !in capabilities.topPRange) return null
         return LLMProvider(
@@ -59,6 +66,7 @@ data class LLMProviderEditForm(
             topP = parsedTopP,
             maxTokens = parsedMaxTokens,
             contextTokens = parsedContextTokens,
+            tokenEstimateReservePercent = tokenEstimateReservePercent,
             sendTemperature = sendTemperature,
             sendTopP = sendTopP,
             promptPostProcessingMode = promptPostProcessingMode.ordinal,

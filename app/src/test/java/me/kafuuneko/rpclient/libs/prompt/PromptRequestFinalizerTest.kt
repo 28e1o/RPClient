@@ -71,7 +71,30 @@ class PromptRequestFinalizerTest {
     }
 
     @Test
-    fun tokenizerRegistryUsesBpeForOpenAiAndUtf8UpperBoundForUnknownModels() {
+    fun longHistoryNeverOutranksUserNoteBecauseOfItsIndex() {
+        val history = List(250) { index ->
+            draft(
+                content = "h$index",
+                priority = PromptRetentionPolicy.HISTORY,
+                canDrop = index != 249
+            )
+        }
+        val result = finalize(
+            drafts = listOf(
+                draft("Required", priority = 1_000, canDrop = false),
+                draft("USER_NOTE", priority = 300, canDrop = true)
+            ) + history,
+            contextTokens = 500,
+            responseTokens = 50
+        )
+
+        assertTrue(result.request.messages.any { it.content == "USER_NOTE" })
+        assertTrue(result.request.messages.any { it.content == "h249" })
+        assertTrue(result.inspection.omittedItems.size > 200)
+    }
+
+    @Test
+    fun tokenizerRegistryUsesExactOpenAiAndModelFamilyProxies() {
         val registry = PromptTokenizerRegistry()
         val openAi = registry.resolve(
             LLMProvider(
@@ -82,12 +105,153 @@ class PromptRequestFinalizerTest {
                 model = "gpt-4o-mini"
             )
         )
-        val fallback = registry.resolve(null)
+        val claude = registry.resolve(
+            provider(
+                type = LLMProviderType.Claude,
+                protocol = LLMProviderProtocol.AnthropicMessages,
+                model = "claude-sonnet-4"
+            )
+        )
+        val gemini = registry.resolve(
+            provider(
+                type = LLMProviderType.Gemini,
+                protocol = LLMProviderProtocol.Gemini,
+                model = "gemini-2.5-pro"
+            )
+        )
+        val fallback = registry.resolve(
+            provider(
+                type = LLMProviderType.Custom,
+                protocol = LLMProviderProtocol.OpenAICompatible,
+                model = "unknown-local-model"
+            )
+        )
 
         assertEquals(PromptTokenizerStrategy.ModelAware, openAi.strategy)
         assertEquals(2, openAi.countText("hello world"))
-        assertEquals(PromptTokenizerStrategy.Conservative, fallback.strategy)
-        assertEquals(6, fallback.countText("你好"))
+        assertEquals(PromptTokenizerStrategy.Estimated, claude.strategy)
+        assertEquals(PromptTokenizerStrategy.Estimated, gemini.strategy)
+        assertEquals(PromptTokenizerStrategy.Estimated, fallback.strategy)
+        assertEquals(15, claude.reservePercent)
+        assertTrue(claude.name.contains("proxy"))
+        assertTrue(gemini.name.contains("proxy"))
+        assertTrue(fallback.countText("你好") in 1..5)
+    }
+
+    @Test
+    fun proxyReserveUsesTrueBudgetRatioAndIsProviderScoped() {
+        val registry = PromptTokenizerRegistry()
+        val baseProvider = provider(
+            LLMProviderType.Claude,
+            LLMProviderProtocol.AnthropicMessages,
+            "claude"
+        )
+        val text = "one two three four five six seven eight nine ten"
+        val baseTokens = registry.resolve(
+            baseProvider.copy(tokenEstimateReservePercent = 0)
+        ).countText(text)
+
+        listOf(0, 15, 35, 50).forEach { reservePercent ->
+            val tokenizer = registry.resolve(
+                baseProvider.copy(tokenEstimateReservePercent = reservePercent)
+            )
+            val expected = kotlin.math.ceil(
+                baseTokens * 100.0 / (100 - reservePercent)
+            ).toInt()
+            assertEquals(expected, tokenizer.countText(text))
+            assertEquals(reservePercent, tokenizer.reservePercent)
+        }
+    }
+
+    @Test
+    fun proxyReserveCoercesPersistedValuesToSupportedRange() {
+        val registry = PromptTokenizerRegistry()
+        val baseProvider = provider(
+            LLMProviderType.Claude,
+            LLMProviderProtocol.AnthropicMessages,
+            "claude"
+        )
+
+        assertEquals(
+            0,
+            registry.resolve(baseProvider.copy(tokenEstimateReservePercent = -1)).reservePercent
+        )
+        assertEquals(
+            50,
+            registry.resolve(baseProvider.copy(tokenEstimateReservePercent = 99)).reservePercent
+        )
+    }
+
+    @Test
+    fun promptInspectionRecordsProxyReserve() {
+        val provider = provider(
+            LLMProviderType.Claude,
+            LLMProviderProtocol.AnthropicMessages,
+            "claude"
+        ).copy(tokenEstimateReservePercent = 35)
+        val result = PromptRequestFinalizer(PromptTokenizerRegistry()).finalize(
+            drafts = listOf(draft("Required", priority = 1_000, canDrop = false)),
+            provider = provider,
+            model = provider.model,
+            options = LLMGenerationOptions(maxTokens = 10),
+            includeReasoningInContent = false,
+            maxContextTokens = 100,
+            maxResponseTokens = 10,
+            postProcessingMode = PromptPostProcessingMode.None,
+            strictPromptPlaceholder = "[Start]"
+        )
+
+        assertEquals(PromptTokenizerStrategy.Estimated, result.inspection.tokenizerStrategy)
+        assertEquals(35, result.inspection.tokenizerReservePercent)
+    }
+
+    @Test
+    fun exactOpenAiTokenizerIgnoresProviderReserve() {
+        val registry = PromptTokenizerRegistry()
+        val openAi = provider(
+            LLMProviderType.ChatGPT,
+            LLMProviderProtocol.OpenAICompatible,
+            "gpt-4o-mini"
+        )
+        val withoutReserve = registry.resolve(openAi.copy(tokenEstimateReservePercent = 0))
+        val withReserve = registry.resolve(openAi.copy(tokenEstimateReservePercent = 50))
+
+        assertEquals(0, withoutReserve.reservePercent)
+        assertEquals(0, withReserve.reservePercent)
+        assertEquals(withoutReserve.countText("hello world"), withReserve.countText("hello world"))
+    }
+
+    @Test
+    fun unknownOpenAiModelUsesProviderReserveAsProxy() {
+        val tokenizer = PromptTokenizerRegistry().resolve(
+            provider(
+                LLMProviderType.ChatGPT,
+                LLMProviderProtocol.OpenAICompatible,
+                "unknown-future-model"
+            ).copy(tokenEstimateReservePercent = 35)
+        )
+
+        assertEquals(PromptTokenizerStrategy.Estimated, tokenizer.strategy)
+        assertEquals(35, tokenizer.reservePercent)
+    }
+
+    @Test
+    fun proxyTokenizersDoNotTreatEveryUtf8ByteAsAToken() {
+        val registry = PromptTokenizerRegistry()
+        val providers = listOf(
+            provider(LLMProviderType.Claude, LLMProviderProtocol.AnthropicMessages, "claude"),
+            provider(LLMProviderType.Gemini, LLMProviderProtocol.Gemini, "gemini"),
+            provider(LLMProviderType.DeepSeek, LLMProviderProtocol.OpenAICompatible, "deepseek-chat"),
+            provider(LLMProviderType.OpenRouter, LLMProviderProtocol.OpenAICompatible, "qwen/qwen3")
+        )
+        val text = "你好，这是一段用于上下文预算的消息。"
+        val utf8Bytes = text.toByteArray(Charsets.UTF_8).size
+
+        providers.forEach { provider ->
+            val tokenizer = registry.resolve(provider)
+            assertTrue(tokenizer.countText(text) < utf8Bytes)
+            assertTrue(tokenizer.countText(text) > 0)
+        }
     }
 
     private fun finalize(
@@ -120,6 +284,20 @@ class PromptRequestFinalizerTest {
             source = PromptSource(PromptSourceKind.Other, content.take(8)),
             retentionPriority = priority,
             canDrop = canDrop
+        )
+    }
+
+    private fun provider(
+        type: LLMProviderType,
+        protocol: LLMProviderProtocol,
+        model: String
+    ): LLMProvider {
+        return LLMProvider(
+            name = "Test",
+            providerType = type,
+            protocol = protocol,
+            baseUrl = "https://example.invalid",
+            model = model
         )
     }
 }

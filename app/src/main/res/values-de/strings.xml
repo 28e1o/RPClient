@@ -410,6 +410,9 @@
     <string name="base_url_empty">Basis-URL darf nicht leer sein</string>
     <string name="model_name_required">Modellname ist erforderlich</string>
     <string name="generation_params_invalid">Ungültiges Format der Generierungsparameter</string>
+    <string name="token_estimate_reserve">Token-Schätzreserve (%)</string>
+    <string name="token_estimate_reserve_description">Reserviert Kontext für Proxy-Tokenizer. Höhere Werte senken das Überlaufrisiko, behalten aber weniger Verlauf; exakte Tokenizer ignorieren diesen Wert.</string>
+    <string name="token_estimate_reserve_invalid">Die Token-Schätzreserve muss eine ganze Zahl von 0 bis 50 sein</string>
     <string name="max_tokens_must_be_less_than_context">Maximale Tokens müssen kleiner als die Kontext-Tokens sein</string>
     <string name="model_query_unsupported">Dieser Dienst unterstützt keine Modellabfrage. Gib die Modell-ID manuell ein.</string>
     <string name="model_query_invalid_response">Der Anbieter hat eine nicht erkennbare Modellliste zurückgegeben</string>
@@ -474,6 +477,11 @@
     <string name="prompt_post_processing_strict_desc">Wende die halbstrikte Umwandlung an und stelle sicher, dass der Chat mit einer Benutzernachricht beginnt.</string>
     <string name="prompt_post_processing_single_user">Einzelne Benutzernachricht</string>
     <string name="prompt_post_processing_single_user_desc">Wandle alle Nachrichten in Benutzer um, ergänze Sprechernamen und führe sie zusammen.</string>
+    <string name="prompt_example_behavior_title">Beispieldialoge</string>
+    <string name="prompt_example_behavior_desc">Legt fest, ob der echte Verlauf oder Kartenbeispiele das restliche Kontextbudget zuerst erhalten.</string>
+    <string name="prompt_example_behavior_normal">Verlauf bevorzugen</string>
+    <string name="prompt_example_behavior_pinned">Beispiele anheften</string>
+    <string name="prompt_example_behavior_disabled">Deaktiviert</string>
     <string name="prompt_include_think_context_title">Denkblöcke (Think) im Kontext einschließen</string>
     <string name="prompt_include_think_context_desc">Wenn deaktiviert, werden gespeicherte &lt;think&gt;...&lt;/think&gt; Blöcke aus zukünftigen Prompts entfernt.</string>
     <string name="selected_count">%d ausgewählt</string>
@@ -584,6 +592,8 @@
     <string name="prompt_inspector_unavailable">Generiere eine Antwort, bevor du den Prompt-Inspektor öffnest</string>
     <string name="prompt_trimmed_warning">Einige Prompt-Abschnitte wurden entfernt, um im Kontextlimit zu bleiben. Öffne den Prompt-Inspektor für Details.</string>
     <string name="prompt_tokenizer_model_aware">modellbewusstes lokales BPE</string>
+    <string name="prompt_tokenizer_estimated">Proxy-Schätzung</string>
+    <string name="prompt_tokenizer_reserve">%1$d%% Reserve</string>
     <string name="prompt_tokenizer_conservative">konservative Obergrenze</string>
     <string name="prompt_omission_context_budget">durch das endgültige Kontextbudget entfernt</string>
     <string name="prompt_omission_world_info_budget">durch das Weltinfo-Budget entfernt</string>

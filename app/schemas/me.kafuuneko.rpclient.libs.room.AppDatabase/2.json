@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 2,
-    "identityHash": "914e4762381ca0e511cdd3b0937f17cd",
+    "identityHash": "9f9e2d3ea541b3446c4002f148fd20df",
     "entities": [
       {
         "tableName": "character",
@@ -647,7 +647,7 @@
       },
       {
         "tableName": "llm_providers",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `providerType` TEXT NOT NULL, `protocol` TEXT NOT NULL, `baseUrl` TEXT NOT NULL, `apiKey` TEXT NOT NULL, `model` TEXT NOT NULL, `customHeadersJson` TEXT NOT NULL, `temperature` REAL NOT NULL, `topP` REAL NOT NULL, `maxTokens` INTEGER NOT NULL, `contextTokens` INTEGER NOT NULL, `sendTemperature` INTEGER NOT NULL, `sendTopP` INTEGER NOT NULL, `promptPostProcessingMode` INTEGER NOT NULL, `isEnabled` INTEGER NOT NULL, `createTime` INTEGER NOT NULL, `updateTime` INTEGER NOT NULL)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `providerType` TEXT NOT NULL, `protocol` TEXT NOT NULL, `baseUrl` TEXT NOT NULL, `apiKey` TEXT NOT NULL, `model` TEXT NOT NULL, `customHeadersJson` TEXT NOT NULL, `temperature` REAL NOT NULL, `topP` REAL NOT NULL, `maxTokens` INTEGER NOT NULL, `contextTokens` INTEGER NOT NULL, `tokenEstimateReservePercent` INTEGER NOT NULL DEFAULT 15, `sendTemperature` INTEGER NOT NULL, `sendTopP` INTEGER NOT NULL, `promptPostProcessingMode` INTEGER NOT NULL, `isEnabled` INTEGER NOT NULL, `createTime` INTEGER NOT NULL, `updateTime` INTEGER NOT NULL)",
         "fields": [
           {
             "fieldPath": "id",
@@ -720,6 +720,13 @@
             "columnName": "contextTokens",
             "affinity": "INTEGER",
             "notNull": true
+          },
+          {
+            "fieldPath": "tokenEstimateReservePercent",
+            "columnName": "tokenEstimateReservePercent",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "15"
           },
           {
             "fieldPath": "sendTemperature",
@@ -1206,7 +1213,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '914e4762381ca0e511cdd3b0937f17cd')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '9f9e2d3ea541b3446c4002f148fd20df')"
     ]
   }
 }

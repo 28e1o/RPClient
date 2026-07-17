@@ -410,6 +410,9 @@
     <string name="base_url_empty">ベースURLを入力してください</string>
     <string name="model_name_required">モデル名は必須です</string>
     <string name="generation_params_invalid">生成パラメータのフォーマットが無効です</string>
+    <string name="token_estimate_reserve">トークン推定リザーブ（%）</string>
+    <string name="token_estimate_reserve_description">プロキシ Tokenizer 用にコンテキストを確保します。値が高いほど超過リスクは下がりますが、保持できる履歴は減ります。正確な Tokenizer はこの値を使用しません。</string>
+    <string name="token_estimate_reserve_invalid">トークン推定リザーブは 0～50 の整数で指定してください</string>
     <string name="max_tokens_must_be_less_than_context">最大トークン数はコンテキストトークン数未満にしてください</string>
     <string name="model_query_unsupported">このサービスはモデル取得に対応していません。モデル ID を手動で入力してください</string>
     <string name="model_query_invalid_response">プロバイダーから認識できないモデル一覧が返されました</string>
@@ -474,6 +477,11 @@
     <string name="prompt_post_processing_strict_desc">準厳密変換を適用し、チャット本文が user メッセージから始まるようにします。</string>
     <string name="prompt_post_processing_single_user">単一ユーザーメッセージ</string>
     <string name="prompt_post_processing_single_user_desc">すべてを user メッセージに変換し、話者名を付けてから結合します。</string>
+    <string name="prompt_example_behavior_title">例示対話の動作</string>
+    <string name="prompt_example_behavior_desc">実際の履歴とキャラクターカードの例のどちらを優先するか選択します。</string>
+    <string name="prompt_example_behavior_normal">履歴を優先</string>
+    <string name="prompt_example_behavior_pinned">例を固定</string>
+    <string name="prompt_example_behavior_disabled">無効</string>
     <string name="prompt_include_think_context_title">思考ブロックをコンテキストに含める</string>
     <string name="prompt_include_think_context_desc">無効にすると、保存された &lt;think&gt;...&lt;/think&gt; ブロックが今後のプロンプトから削除されます。</string>
     <string name="selected_count">%d 件選択</string>
@@ -583,6 +591,8 @@
     <string name="prompt_inspector_unavailable">プロンプトインスペクターを開く前に返信を生成してください</string>
     <string name="prompt_trimmed_warning">コンテキスト制限内に収めるため、一部のプロンプトセクションが削除されました。詳細はプロンプトインスペクターで確認してください。</string>
     <string name="prompt_tokenizer_model_aware">モデル対応ローカル BPE</string>
+    <string name="prompt_tokenizer_estimated">プロキシ推定</string>
+    <string name="prompt_tokenizer_reserve">%1$d%% リザーブ</string>
     <string name="prompt_tokenizer_conservative">保守的な上限</string>
     <string name="prompt_omission_context_budget">最終コンテキスト予算により削除</string>
     <string name="prompt_omission_world_info_budget">ワールド情報予算により削除</string>

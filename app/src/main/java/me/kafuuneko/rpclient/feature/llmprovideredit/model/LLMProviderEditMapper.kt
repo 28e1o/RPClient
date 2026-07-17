@@ -18,6 +18,7 @@ internal fun LLMProvider.toEditForm() = LLMProviderEditForm(
     topP = topP.toString(),
     maxTokens = maxTokens.toString(),
     contextTokens = contextTokens.toString(),
+    tokenEstimateReservePercent = tokenEstimateReservePercent,
     sendTemperature = sendTemperature,
     sendTopP = sendTopP,
     promptPostProcessingMode = PromptPostProcessingMode.fromOrdinal(promptPostProcessingMode),

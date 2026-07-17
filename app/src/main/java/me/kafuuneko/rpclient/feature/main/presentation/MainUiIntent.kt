@@ -3,6 +3,7 @@ package me.kafuuneko.rpclient.feature.main.presentation
 import android.net.Uri
 import me.kafuuneko.rpclient.feature.main.model.MainSessionSelection
 import me.kafuuneko.rpclient.feature.main.model.MainGenerationParameter
+import me.kafuuneko.rpclient.libs.prompt.ExampleDialogueBehavior
 import me.kafuuneko.rpclient.libs.prompt.PromptPostProcessingMode
 import me.kafuuneko.rpclient.libs.prompt.SummaryInjectionPosition
 import me.kafuuneko.rpclient.libs.prompt.SummaryInjectionRole
@@ -56,6 +57,10 @@ sealed class MainUiIntent {
     data class ToggleStreamEnabled(val enabled: Boolean) : MainUiIntent()
 
     data class SelectPostProcessingMode(val mode: PromptPostProcessingMode) : MainUiIntent()
+
+    data class SelectExampleDialogueBehavior(
+        val behavior: ExampleDialogueBehavior
+    ) : MainUiIntent()
 
     data class ToggleIncludeThinkInContext(val enabled: Boolean) : MainUiIntent()
 

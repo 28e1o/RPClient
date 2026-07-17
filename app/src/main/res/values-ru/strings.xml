@@ -409,6 +409,9 @@
     <string name="base_url_empty">Базовый URL не может быть пустым</string>
     <string name="model_name_required">Требуется название модели</string>
     <string name="generation_params_invalid">Неверный формат параметров генерации</string>
+    <string name="token_estimate_reserve">Резерв оценки токенов (%)</string>
+    <string name="token_estimate_reserve_description">Резервирует контекст для прокси-токенизаторов. Большие значения снижают риск переполнения, но сохраняют меньше истории; точные токенизаторы игнорируют это значение.</string>
+    <string name="token_estimate_reserve_invalid">Резерв оценки токенов должен быть целым числом от 0 до 50</string>
     <string name="max_tokens_must_be_less_than_context">Максимальное число токенов должно быть меньше размера контекста</string>
     <string name="model_query_unsupported">Этот сервис не поддерживает запрос моделей. Введите ID модели вручную</string>
     <string name="model_query_invalid_response">Поставщик вернул нераспознанный список моделей</string>
@@ -473,6 +476,11 @@
     <string name="prompt_post_processing_strict_desc">Применить полустрогое преобразование и гарантировать, что чат начинается с сообщения пользователя.</string>
     <string name="prompt_post_processing_single_user">Одно сообщение пользователя</string>
     <string name="prompt_post_processing_single_user_desc">Преобразовать все сообщения в пользовательские, добавить имена говорящих и объединить.</string>
+    <string name="prompt_example_behavior_title">Поведение примеров диалога</string>
+    <string name="prompt_example_behavior_desc">Выберите, что первым использует оставшийся бюджет контекста: история или примеры карты.</string>
+    <string name="prompt_example_behavior_normal">Приоритет истории</string>
+    <string name="prompt_example_behavior_pinned">Закрепить примеры</string>
+    <string name="prompt_example_behavior_disabled">Отключено</string>
     <string name="prompt_include_think_context_title">Включать блоки размышлений в контекст</string>
     <string name="prompt_include_think_context_desc">Если выключено, сохранённые блоки &lt;think&gt;...&lt;/think&gt; будут удалены из будущих промптов.</string>
     <string name="selected_count">Выбрано: %d</string>
@@ -585,6 +593,8 @@
     <string name="prompt_inspector_unavailable">Сгенерируйте ответ перед открытием инспектора промпта</string>
     <string name="prompt_trimmed_warning">Некоторые разделы промпта удалены, чтобы уложиться в лимит контекста. Откройте инспектор промпта для подробностей.</string>
     <string name="prompt_tokenizer_model_aware">локальный BPE с учетом модели</string>
+    <string name="prompt_tokenizer_estimated">прокси-оценка</string>
+    <string name="prompt_tokenizer_reserve">резерв %1$d%%</string>
     <string name="prompt_tokenizer_conservative">консервативная верхняя оценка</string>
     <string name="prompt_omission_context_budget">удалено итоговым бюджетом контекста</string>
     <string name="prompt_omission_world_info_budget">удалено бюджетом World Info</string>

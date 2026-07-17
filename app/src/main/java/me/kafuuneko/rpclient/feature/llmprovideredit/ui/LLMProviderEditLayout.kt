@@ -32,6 +32,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -48,6 +49,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 import me.kafuuneko.rpclient.R
 import me.kafuuneko.rpclient.feature.llmprovideredit.model.CredentialEditMode
 import me.kafuuneko.rpclient.feature.llmprovideredit.model.LLMProviderEditForm
@@ -63,6 +65,8 @@ import me.kafuuneko.rpclient.libs.llm.catalog.model.LLMAvailableModel
 import me.kafuuneko.rpclient.libs.llm.model.LLMProviderProtocol
 import me.kafuuneko.rpclient.libs.llm.model.LLMProviderType
 import me.kafuuneko.rpclient.libs.prompt.PromptPostProcessingMode
+import me.kafuuneko.rpclient.libs.room.entity.MAX_TOKEN_ESTIMATE_RESERVE_PERCENT
+import me.kafuuneko.rpclient.libs.room.entity.MIN_TOKEN_ESTIMATE_RESERVE_PERCENT
 import me.kafuuneko.rpclient.model.TokenPreset
 import me.kafuuneko.rpclient.ui.theme.AppTheme
 import me.kafuuneko.rpclient.ui.widgets.AppTopBar
@@ -441,6 +445,12 @@ private fun ParameterPanel(
             value = form.contextTokens,
             onChange = { LLMProviderEditUiIntent.ChangeContextTokens(it).emit() }
         )
+        TokenEstimateReserveSlider(
+            value = form.tokenEstimateReservePercent,
+            onChange = {
+                LLMProviderEditUiIntent.ChangeTokenEstimateReservePercent(it).emit()
+            }
+        )
         Text(
             text = stringResource(R.string.prompt_post_processing_provider_title),
             style = MaterialTheme.typography.titleSmall
@@ -452,6 +462,45 @@ private fun ParameterPanel(
             onSelect = {
                 LLMProviderEditUiIntent.SelectPostProcessingMode(it).emit()
             }
+        )
+    }
+}
+
+@Composable
+private fun TokenEstimateReserveSlider(
+    value: Int,
+    onChange: (Int) -> Unit
+) {
+    val percent = value.coerceIn(
+        MIN_TOKEN_ESTIMATE_RESERVE_PERCENT,
+        MAX_TOKEN_ESTIMATE_RESERVE_PERCENT
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = stringResource(R.string.token_estimate_reserve),
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.titleSmall
+            )
+            Text(
+                text = "$percent%",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+        Slider(
+            value = percent.toFloat(),
+            onValueChange = { onChange(it.roundToInt()) },
+            valueRange = MIN_TOKEN_ESTIMATE_RESERVE_PERCENT.toFloat()..
+                MAX_TOKEN_ESTIMATE_RESERVE_PERCENT.toFloat()
+        )
+        Text(
+            text = stringResource(R.string.token_estimate_reserve_description),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }

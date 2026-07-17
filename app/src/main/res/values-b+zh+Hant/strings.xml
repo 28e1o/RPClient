@@ -421,6 +421,9 @@
     <string name="base_url_empty">Base URL 不能為空</string>
     <string name="model_name_required">模型名稱為必填項</string>
     <string name="generation_params_invalid">生成參數格式無效</string>
+    <string name="token_estimate_reserve">Token 估算預留（%）</string>
+    <string name="token_estimate_reserve_description">為代理 Tokenizer 預留上下文空間。數值越高越不容易超限，但可傳送的歷史內容越少；精確 Tokenizer 不使用此值。</string>
+    <string name="token_estimate_reserve_invalid">Token 估算預留必須是 0 到 50 的整數</string>
     <string name="max_tokens_must_be_less_than_context">最大 Token 必須小於上下文 Token</string>
     <string name="model_query_unsupported">此服務不支援查詢模型，請手動填寫模型 ID</string>
     <string name="model_query_invalid_response">供應商傳回了無法辨識的模型清單</string>
@@ -485,6 +488,11 @@
     <string name="prompt_post_processing_strict_desc">執行 Semi-strict 轉換，並確保聊天正文從 user 訊息開始。</string>
     <string name="prompt_post_processing_single_user">Single user message</string>
     <string name="prompt_post_processing_single_user_desc">把所有訊息轉為 user，補上發言者名稱後合併為一則訊息。</string>
+    <string name="prompt_example_behavior_title">範例對話策略</string>
+    <string name="prompt_example_behavior_desc">選擇真實歷史或角色卡範例優先使用剩餘上下文預算。</string>
+    <string name="prompt_example_behavior_normal">優先歷史</string>
+    <string name="prompt_example_behavior_pinned">固定範例</string>
+    <string name="prompt_example_behavior_disabled">停用</string>
     <string name="prompt_include_think_context_title">上下文包含 think 區塊</string>
     <string name="prompt_include_think_context_desc">關閉後，後續 prompt 會剝離已保存訊息中的 &lt;think&gt;...&lt;/think&gt; 內容。</string>
     <string name="selected_count">已選 %d 項</string>
@@ -594,6 +602,8 @@
     <string name="prompt_inspector_unavailable">請先產生一次回覆，再開啟 Prompt 檢查器</string>
     <string name="prompt_trimmed_warning">部分 Prompt 區段已為符合上下文限制而移除。開啟 Prompt 檢查器查看詳情。</string>
     <string name="prompt_tokenizer_model_aware">模型感知的本機 BPE</string>
+    <string name="prompt_tokenizer_estimated">代理估算</string>
+    <string name="prompt_tokenizer_reserve">預留 %1$d%%</string>
     <string name="prompt_tokenizer_conservative">保守上限</string>
     <string name="prompt_omission_context_budget">由最終上下文預算移除</string>
     <string name="prompt_omission_world_info_budget">由世界資訊預算移除</string>

@@ -1,5 +1,6 @@
 package me.kafuuneko.rpclient.libs.room.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import me.kafuuneko.rpclient.libs.llm.model.LLMProviderConfig
@@ -33,6 +34,9 @@ data class LLMProvider(
     val maxTokens: Int = 1200,
     // 默认上下文 Token 预算
     val contextTokens: Int = 8192,
+    // 代理 Tokenizer 的本地预算预留率，不会发送给供应商。
+    @ColumnInfo(defaultValue = "15")
+    val tokenEstimateReservePercent: Int = DEFAULT_TOKEN_ESTIMATE_RESERVE_PERCENT,
     // 是否在请求中显式发送 temperature。
     val sendTemperature: Boolean = true,
     // 是否在请求中显式发送 top_p。
@@ -46,6 +50,10 @@ data class LLMProvider(
     // 更新时间
     val updateTime: Long = createTime
 )
+
+const val DEFAULT_TOKEN_ESTIMATE_RESERVE_PERCENT = 15
+const val MIN_TOKEN_ESTIMATE_RESERVE_PERCENT = 0
+const val MAX_TOKEN_ESTIMATE_RESERVE_PERCENT = 50
 
 /** 转换为网络适配器使用的不可变运行时配置。 */
 fun LLMProvider.toConfig() = LLMProviderConfig(

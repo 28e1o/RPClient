@@ -31,6 +31,8 @@ import me.kafuuneko.rpclient.libs.llm.catalog.model.LLMAvailableModel
 import me.kafuuneko.rpclient.libs.llm.model.LLMProviderCapabilities
 import me.kafuuneko.rpclient.libs.llm.model.LLMProviderConfig
 import me.kafuuneko.rpclient.libs.room.entity.LLMProvider
+import me.kafuuneko.rpclient.libs.room.entity.MAX_TOKEN_ESTIMATE_RESERVE_PERCENT
+import me.kafuuneko.rpclient.libs.room.entity.MIN_TOKEN_ESTIMATE_RESERVE_PERCENT
 import me.kafuuneko.rpclient.libs.room.entity.toConfig
 import me.kafuuneko.rpclient.libs.room.repository.LLMRepository
 import org.koin.core.component.KoinComponent
@@ -296,6 +298,11 @@ class LLMProviderEditViewModel :
     private fun onChangeContextTokens(intent: LLMProviderEditUiIntent.ChangeContextTokens) =
         updateForm { copy(contextTokens = intent.value) }
 
+    @UiIntentObserver(LLMProviderEditUiIntent.ChangeTokenEstimateReservePercent::class)
+    private fun onChangeTokenEstimateReservePercent(
+        intent: LLMProviderEditUiIntent.ChangeTokenEstimateReservePercent
+    ) = updateForm { copy(tokenEstimateReservePercent = intent.value) }
+
     @UiIntentObserver(LLMProviderEditUiIntent.ToggleSendTemperature::class)
     private fun onToggleSendTemperature(intent: LLMProviderEditUiIntent.ToggleSendTemperature) =
         updateForm { copy(sendTemperature = intent.value) }
@@ -455,6 +462,14 @@ class LLMProviderEditViewModel :
         ) {
             AppViewEvent.PopupToastMessageByResId(
                 R.string.max_tokens_must_be_less_than_context
+            ).tryEmit()
+            return null
+        }
+        if (tokenEstimateReservePercent !in
+            MIN_TOKEN_ESTIMATE_RESERVE_PERCENT..MAX_TOKEN_ESTIMATE_RESERVE_PERCENT
+        ) {
+            AppViewEvent.PopupToastMessageByResId(
+                R.string.token_estimate_reserve_invalid
             ).tryEmit()
             return null
         }

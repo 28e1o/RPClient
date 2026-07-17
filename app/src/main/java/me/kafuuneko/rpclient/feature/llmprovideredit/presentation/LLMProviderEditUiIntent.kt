@@ -54,6 +54,8 @@ sealed class LLMProviderEditUiIntent {
 
     data class ChangeContextTokens(val value: String) : LLMProviderEditUiIntent()
 
+    data class ChangeTokenEstimateReservePercent(val value: Int) : LLMProviderEditUiIntent()
+
     data class ToggleSendTemperature(val value: Boolean) : LLMProviderEditUiIntent()
 
     data class ToggleSendTopP(val value: Boolean) : LLMProviderEditUiIntent()

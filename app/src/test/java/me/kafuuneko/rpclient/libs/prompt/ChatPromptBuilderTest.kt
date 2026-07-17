@@ -97,6 +97,54 @@ class ChatPromptBuilderTest {
     }
 
     @Test
+    fun disabledWorldInfoExamplesDoNotConsumeBudgetOrAdvanceState() {
+        val example = lorebookEntry(
+            id = 91L,
+            order = 100,
+            depth = 0,
+            content = "EXAMPLE_" + "e".repeat(72),
+            position = LorebookEntry.POSITION_EXAMPLE_TOP
+        ).copy(sticky = 2)
+        val normal = lorebookEntry(
+            id = 92L,
+            order = 10,
+            depth = 0,
+            content = "NORMAL_" + "n".repeat(43),
+            position = LorebookEntry.POSITION_BEFORE
+        )
+        var providerReads = 0
+        val tokenizer = object : PromptTokenizer {
+            override val name = "Character count"
+            override val strategy = PromptTokenizerStrategy.ModelAware
+            override fun countText(text: String): Int = text.length
+        }
+        val disabledBuilder = ChatPromptBuilder(
+            mMacroResolver = PromptMacroResolver(historyBuilder),
+            mHistoryBuilder = historyBuilder,
+            mWorldBookActivator = WorldBookActivator(),
+            mRequestFinalizer = PromptRequestFinalizer { tokenizer },
+            mExampleDialogueBehaviorProvider = ExampleDialogueBehaviorProvider {
+                providerReads += 1
+                ExampleDialogueBehavior.Disabled
+            }
+        )
+
+        val result = disabledBuilder.buildWithMetadata(
+            context(
+                entries = listOf(example, normal),
+                maxContextTokens = 500,
+                maxResponseTokens = 100
+            )
+        )
+
+        assertEquals(1, providerReads)
+        assertFalse(result.request.messages.any { it.content.contains("EXAMPLE_") })
+        assertTrue(result.request.messages.any { it.content.contains("NORMAL_") })
+        assertFalse(result.inspection.omittedItems.any { it.source.referenceId == normal.id })
+        assertFalse(result.worldInfoStateJson.contains("\"${example.id}\""))
+    }
+
+    @Test
     fun fixedPromptSectionsFollowMainAndCharacterWorldInfoOrder() {
         val result = builder.buildWithMetadata(
             context(
@@ -586,6 +634,36 @@ class ChatPromptBuilderTest {
     }
 
     @Test
+    fun disabledExampleBehaviorOmitsCharacterCardExamples() {
+        val request = builder(ExampleDialogueBehavior.Disabled).build(
+            context(
+                character = context().character.copy(
+                    examplesOfDialogue = "<START>\nUser: Example question\nChar: Example answer"
+                ),
+                messages = listOf(chatMessage(1L, ChatMessage.Source.User, "Actual question"))
+            )
+        )
+
+        assertFalse(request.messages.any { it.content.contains("Example question") })
+        assertFalse(request.messages.any { it.content.contains("Example answer") })
+        assertTrue(request.messages.any { it.content == "Actual question" })
+    }
+
+    @Test
+    fun pinnedExamplesTakeBudgetBeforeDroppableHistory() {
+        val normal = builder(ExampleDialogueBehavior.Normal).buildWithMetadata(
+            examplePriorityContext()
+        )
+        val pinned = builder(ExampleDialogueBehavior.Pinned).buildWithMetadata(
+            examplePriorityContext()
+        )
+
+        assertTrue(normal.request.messages.any { it.content.contains("OLD_HISTORY") })
+        assertFalse(pinned.request.messages.any { it.content.contains("OLD_HISTORY") })
+        assertTrue(pinned.request.messages.any { it.content.contains("EXAMPLE_STYLE") })
+    }
+
+    @Test
     fun chineseHistoryIsTrimmedByFinalTokenizerBudget() {
         val result = builder.buildWithMetadata(
             context(
@@ -699,6 +777,36 @@ class ChatPromptBuilderTest {
             maxResponseTokens = maxResponseTokens,
             generationMode = generationMode,
             regexScripts = regexScripts
+        )
+    }
+
+    private fun builder(behavior: ExampleDialogueBehavior): ChatPromptBuilder {
+        val tokenizer = object : PromptTokenizer {
+            override val name = "Character count"
+            override val strategy = PromptTokenizerStrategy.ModelAware
+            override fun countText(text: String): Int = text.length
+        }
+        return ChatPromptBuilder(
+            mMacroResolver = PromptMacroResolver(historyBuilder),
+            mHistoryBuilder = historyBuilder,
+            mWorldBookActivator = WorldBookActivator(),
+            mRequestFinalizer = PromptRequestFinalizer { tokenizer },
+            mExampleDialogueBehaviorProvider = ExampleDialogueBehaviorProvider { behavior }
+        )
+    }
+
+    private fun examplePriorityContext(): PromptBuildContext {
+        val example = "EXAMPLE_STYLE_" + "e".repeat(55)
+        return context(
+            character = context().character.copy(
+                examplesOfDialogue = "<START>\nChar: $example"
+            ),
+            messages = listOf(
+                chatMessage(1L, ChatMessage.Source.Char, "OLD_HISTORY_" + "o".repeat(55)),
+                chatMessage(2L, ChatMessage.Source.User, "LATEST")
+            ),
+            maxContextTokens = 290,
+            maxResponseTokens = 40
         )
     }
 

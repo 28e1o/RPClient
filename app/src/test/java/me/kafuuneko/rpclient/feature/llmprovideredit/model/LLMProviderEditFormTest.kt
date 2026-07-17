@@ -9,6 +9,11 @@ import me.kafuuneko.rpclient.libs.prompt.PromptPostProcessingMode
 
 class LLMProviderEditFormTest {
     @Test
+    fun newFormDefaultsTokenEstimateReserveToFifteenPercent() {
+        assertEquals(15, LLMProviderEditForm().tokenEstimateReservePercent)
+    }
+
+    @Test
     fun acceptsPositiveResponseBudgetSmallerThanContext() {
         assertNotNull(validForm().toProviderOrNull())
     }
@@ -53,10 +58,25 @@ class LLMProviderEditFormTest {
     }
 
     @Test
+    fun validatesTokenEstimateReserveRange() {
+        listOf(0, 15, 35, 50).forEach { value ->
+            assertNotNull(
+                validForm().copy(tokenEstimateReservePercent = value).toProviderOrNull()
+            )
+        }
+        listOf(-1, 51).forEach { value ->
+            assertNull(
+                validForm().copy(tokenEstimateReservePercent = value).toProviderOrNull()
+            )
+        }
+    }
+
+    @Test
     fun roundTripsCapabilityFlagsAndProviderPostProcessing() {
         val provider = validForm().copy(
             sendTemperature = false,
             sendTopP = true,
+            tokenEstimateReservePercent = 35,
             promptPostProcessingMode = PromptPostProcessingMode.SemiStrict
         ).toProviderOrNull() ?: error("Provider should be valid")
 
@@ -64,6 +84,7 @@ class LLMProviderEditFormTest {
 
         assertEquals(false, restored.sendTemperature)
         assertEquals(true, restored.sendTopP)
+        assertEquals(35, restored.tokenEstimateReservePercent)
         assertEquals(PromptPostProcessingMode.SemiStrict, restored.promptPostProcessingMode)
     }
 

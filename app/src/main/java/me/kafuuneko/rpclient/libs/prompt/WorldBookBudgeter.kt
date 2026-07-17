@@ -118,3 +118,19 @@ internal fun WorldBookActivationResult.filterEntries(
         }.filterValues { it.isNotEmpty() }
     )
 }
+
+/**
+ * 在预算计算前排除用户明确禁用的示例位置条目。
+ *
+ * 这些条目并非因预算不足而遗漏，因此不能进入遗漏记录，也不能推进世界书时序状态。
+ */
+internal fun WorldBookActivationResult.filterForExampleBehavior(
+    behavior: ExampleDialogueBehavior
+): WorldBookActivationResult {
+    if (behavior != ExampleDialogueBehavior.Disabled) return this
+    val disabledIds = (exampleBefore + exampleAfter).mapTo(mutableSetOf()) { it.id }
+    if (disabledIds.isEmpty()) return this
+    val selectedIds = activatedEntries
+        .mapNotNullTo(mutableSetOf()) { entry -> entry.id.takeUnless(disabledIds::contains) }
+    return filterEntries(selectedIds)
+}

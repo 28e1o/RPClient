@@ -409,6 +409,9 @@
     <string name="base_url_empty">L\'URL de base ne peut pas être vide</string>
     <string name="model_name_required">Le nom du modèle est requis</string>
     <string name="generation_params_invalid">Le format des paramètres de génération est invalide</string>
+    <string name="token_estimate_reserve">Réserve d’estimation des jetons (%)</string>
+    <string name="token_estimate_reserve_description">Réserve du contexte pour les tokenizers proxy. Une valeur élevée réduit le risque de dépassement mais conserve moins d’historique ; les tokenizers exacts l’ignorent.</string>
+    <string name="token_estimate_reserve_invalid">La réserve d’estimation doit être un entier compris entre 0 et 50</string>
     <string name="max_tokens_must_be_less_than_context">Le nombre maximal de tokens doit être inférieur aux tokens de contexte</string>
     <string name="model_query_unsupported">Ce service ne permet pas de rechercher les modèles ; saisissez l’ID du modèle manuellement</string>
     <string name="model_query_invalid_response">Le fournisseur a retourné une liste de modèles non reconnue</string>
@@ -473,6 +476,11 @@
     <string name="prompt_post_processing_strict_desc">Appliquer la conversion semi-stricte et s\'assurer que la discussion commence par un message utilisateur.</string>
     <string name="prompt_post_processing_single_user">Message d\'utilisateur unique</string>
     <string name="prompt_post_processing_single_user_desc">Convertir tous les messages en utilisateur, ajouter les noms des intervenants, puis les fusionner.</string>
+    <string name="prompt_example_behavior_title">Comportement des exemples</string>
+    <string name="prompt_example_behavior_desc">Choisissez si l’historique réel ou les exemples de la carte utilisent d’abord le budget de contexte restant.</string>
+    <string name="prompt_example_behavior_normal">Préférer l’historique</string>
+    <string name="prompt_example_behavior_pinned">Épingler les exemples</string>
+    <string name="prompt_example_behavior_disabled">Désactivé</string>
     <string name="prompt_include_think_context_title">Inclure les blocs de réflexion dans le contexte</string>
     <string name="prompt_include_think_context_desc">Lorsqu\'il est désactivé, les blocs &lt;think&gt;...&lt;/think&gt; enregistrés sont retirés des prompts futurs.</string>
     <string name="selected_count">%d sélectionnés</string>
@@ -584,6 +592,8 @@
     <string name="prompt_inspector_unavailable">Générez une réponse avant d’ouvrir l’inspecteur de prompt</string>
     <string name="prompt_trimmed_warning">Certaines sections du prompt ont été retirées pour rester dans la limite de contexte. Ouvrez l’inspecteur de prompt pour les détails.</string>
     <string name="prompt_tokenizer_model_aware">BPE local adapté au modèle</string>
+    <string name="prompt_tokenizer_estimated">estimation proxy</string>
+    <string name="prompt_tokenizer_reserve">réserve de %1$d%%</string>
     <string name="prompt_tokenizer_conservative">borne supérieure prudente</string>
     <string name="prompt_omission_context_budget">retiré par le budget de contexte final</string>
     <string name="prompt_omission_world_info_budget">retiré par le budget World Info</string>

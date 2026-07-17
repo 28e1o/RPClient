@@ -2,6 +2,7 @@ package me.kafuuneko.rpclient.libs.room.repository
 
 import me.kafuuneko.rpclient.libs.llm.model.LLMProviderProtocol
 import me.kafuuneko.rpclient.libs.llm.model.LLMProviderType
+import me.kafuuneko.rpclient.libs.room.entity.DEFAULT_TOKEN_ESTIMATE_RESERVE_PERCENT
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Test
@@ -23,6 +24,10 @@ class LLMProviderDefaultsTest {
         assertEquals(DEFAULT_OPENROUTER_MODEL, providers.getValue("OpenRouter").model)
         assertFalse(providers.getValue("Claude").sendTopP)
         assertFalse(providers.values.any { it.isEnabled })
+        assertEquals(
+            setOf(DEFAULT_TOKEN_ESTIMATE_RESERVE_PERCENT),
+            providers.values.map { it.tokenEstimateReservePercent }.toSet()
+        )
         assertEquals(setOf(123L), providers.values.map { it.createTime }.toSet())
         assertEquals(setOf(123L), providers.values.map { it.updateTime }.toSet())
     }

@@ -14,13 +14,101 @@ import me.kafuuneko.rpclient.libs.regex.RegexScript
 import me.kafuuneko.rpclient.libs.regex.RegexScriptScope
 import me.kafuuneko.rpclient.libs.regex.ScopedRegexScript
 import me.kafuuneko.rpclient.libs.llm.model.LLMMessageRole
+import me.kafuuneko.rpclient.libs.prompt.ExampleDialogueBehavior
+import me.kafuuneko.rpclient.libs.prompt.ExampleDialogueBehaviorProvider
+import me.kafuuneko.rpclient.libs.prompt.PromptRequestFinalizer
 import me.kafuuneko.rpclient.libs.prompt.PromptSourceKind
+import me.kafuuneko.rpclient.libs.prompt.PromptTokenizer
+import me.kafuuneko.rpclient.libs.prompt.PromptTokenizerStrategy
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GroupChatPromptBuilderTest {
+    @Test
+    fun disabledExampleBehaviorOmitsAllMemberExamples() {
+        val lyra = character(1, "Lyra").copy(
+            examplesOfDialogue = "<START>\nUser: Example question\nLyra: Example answer"
+        )
+        val request = GroupChatPromptBuilder(
+            mExampleDialogueBehaviorProvider = ExampleDialogueBehaviorProvider {
+                ExampleDialogueBehavior.Disabled
+            }
+        ).build(
+            GroupChatPromptContext(
+                session = GroupChatSession(
+                    id = 1,
+                    title = "Crew",
+                    createTime = 1,
+                    latestTime = 1,
+                    userName = "Alex",
+                    userDescription = ""
+                ),
+                members = listOf(member(lyra, 0)),
+                speaker = lyra,
+                messages = listOf(message(GroupChatMessage.Source.User, "Alex", "Actual question")),
+                provider = provider()
+            )
+        )
+
+        assertFalse(request.messages.any { it.content.contains("Example question") })
+        assertFalse(request.messages.any { it.content.contains("Example answer") })
+        assertTrue(request.messages.any { it.content.contains("Actual question") })
+    }
+
+    @Test
+    fun disabledWorldInfoExamplesDoNotConsumeGroupBudgetOrAdvanceState() {
+        val lyra = character(1, "Lyra")
+        val example = worldEntry(
+            id = 91L,
+            order = 100,
+            content = "EXAMPLE_" + "e".repeat(72),
+            position = LorebookEntry.POSITION_EXAMPLE_TOP
+        ).copy(sticky = 2)
+        val normal = worldEntry(
+            id = 92L,
+            order = 10,
+            content = "NORMAL_" + "n".repeat(43),
+            position = LorebookEntry.POSITION_BEFORE
+        )
+        var providerReads = 0
+        val tokenizer = object : PromptTokenizer {
+            override val name = "Character count"
+            override val strategy = PromptTokenizerStrategy.ModelAware
+            override fun countText(text: String): Int = text.length
+        }
+        val result = GroupChatPromptBuilder(
+            mRequestFinalizer = PromptRequestFinalizer { tokenizer },
+            mExampleDialogueBehaviorProvider = ExampleDialogueBehaviorProvider {
+                providerReads += 1
+                ExampleDialogueBehavior.Disabled
+            }
+        ).buildWithMetadata(
+            GroupChatPromptContext(
+                session = GroupChatSession(
+                    id = 1,
+                    title = "Crew",
+                    createTime = 1,
+                    latestTime = 1,
+                    userName = "Alex",
+                    userDescription = ""
+                ),
+                members = listOf(member(lyra, 0)),
+                speaker = lyra,
+                messages = listOf(message(GroupChatMessage.Source.User, "Alex", "Actual")),
+                provider = provider(contextTokens = 500, maxTokens = 100),
+                candidateLorebookEntries = listOf(example, normal)
+            )
+        )
+
+        assertEquals(1, providerReads)
+        assertFalse(result.request.messages.any { it.content.contains("EXAMPLE_") })
+        assertTrue(result.request.messages.any { it.content.contains("NORMAL_") })
+        assertFalse(result.inspection.omittedItems.any { it.source.referenceId == normal.id })
+        assertFalse(result.worldInfoStateJson.contains("\"${example.id}\""))
+    }
+
     @Test
     fun groupPromptUsesSamePromptOnlyRegexPipeline() {
         val lyra = character(1, "Lyra")
@@ -362,6 +450,27 @@ class GroupChatPromptBuilderTest {
         return GroupChatMemberData(
             relation = GroupChatMember(1, character.id, order),
             character = character
+        )
+    }
+
+    private fun worldEntry(
+        id: Long,
+        order: Int,
+        content: String,
+        position: Int
+    ): LorebookEntry {
+        return LorebookEntry(
+            id = id,
+            lorebookId = 1L,
+            name = "Entry $id",
+            keywords = "[]",
+            secondaryKeywords = "[]",
+            constant = true,
+            order = order,
+            depth = 0,
+            category = "[]",
+            content = content,
+            position = position
         )
     }
 

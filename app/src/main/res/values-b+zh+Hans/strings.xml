@@ -421,6 +421,9 @@
     <string name="base_url_empty">Base URL 不能为空</string>
     <string name="model_name_required">模型名称为必填项</string>
     <string name="generation_params_invalid">生成参数格式无效</string>
+    <string name="token_estimate_reserve">Token 估算预留（%）</string>
+    <string name="token_estimate_reserve_description">为代理 Tokenizer 预留上下文空间。数值越高越不容易超限，但可发送的历史内容越少；精确 Tokenizer 不使用此值。</string>
+    <string name="token_estimate_reserve_invalid">Token 估算预留必须是 0 到 50 的整数</string>
     <string name="max_tokens_must_be_less_than_context">最大 Token 必须小于上下文 Token</string>
     <string name="model_query_unsupported">该服务不支持查询模型，请手动填写模型 ID</string>
     <string name="model_query_invalid_response">提供商返回了无法识别的模型列表</string>
@@ -485,6 +488,11 @@
     <string name="prompt_post_processing_strict_desc">执行 Semi-strict 转换，并确保聊天正文从 user 消息开始。</string>
     <string name="prompt_post_processing_single_user">Single user message</string>
     <string name="prompt_post_processing_single_user_desc">把所有消息转为 user，补充发言者名称后合并为一条消息。</string>
+    <string name="prompt_example_behavior_title">示例对话策略</string>
+    <string name="prompt_example_behavior_desc">选择真实历史或角色卡示例优先使用剩余上下文预算。</string>
+    <string name="prompt_example_behavior_normal">优先历史</string>
+    <string name="prompt_example_behavior_pinned">固定示例</string>
+    <string name="prompt_example_behavior_disabled">禁用</string>
     <string name="prompt_include_think_context_title">上下文包含 think 块</string>
     <string name="prompt_include_think_context_desc">关闭后，后续 prompt 会剥离已保存消息中的 &lt;think&gt;...&lt;/think&gt; 内容。</string>
     <string name="selected_count">已选 %d 项</string>
@@ -594,6 +602,8 @@
     <string name="prompt_inspector_unavailable">生成一次回复后才能查看 Prompt 检查器</string>
     <string name="prompt_trimmed_warning">部分 Prompt 内容已为适配上下文而移除，请打开 Prompt 检查器查看详情。</string>
     <string name="prompt_tokenizer_model_aware">模型感知的本地 BPE</string>
+    <string name="prompt_tokenizer_estimated">代理估算</string>
+    <string name="prompt_tokenizer_reserve">预留 %1$d%%</string>
     <string name="prompt_tokenizer_conservative">保守上界</string>
     <string name="prompt_omission_context_budget">由最终上下文预算移除</string>
     <string name="prompt_omission_world_info_budget">由世界书预算移除</string>

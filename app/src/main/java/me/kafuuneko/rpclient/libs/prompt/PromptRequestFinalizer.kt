@@ -88,6 +88,7 @@ class PromptRequestFinalizer(
                         model = model.orEmpty(),
                         tokenizerName = tokenizer.name,
                         tokenizerStrategy = tokenizer.strategy,
+                        tokenizerReservePercent = tokenizer.reservePercent,
                         postProcessingMode = postProcessingMode,
                         contextLimit = maxContextTokens,
                         responseReserve = maxResponseTokens,

@@ -409,6 +409,9 @@
     <string name="base_url_empty">기본 URL은 비워둘 수 없습니다</string>
     <string name="model_name_required">모델 이름은 필수 입력 항목입니다</string>
     <string name="generation_params_invalid">생성 파라미터 형식이 잘못되었습니다</string>
+    <string name="token_estimate_reserve">토큰 추정 여유분(%)</string>
+    <string name="token_estimate_reserve_description">프록시 Tokenizer를 위한 컨텍스트 공간을 확보합니다. 값이 높을수록 초과 위험은 줄지만 보존되는 기록도 줄어듭니다. 정확한 Tokenizer는 이 값을 사용하지 않습니다.</string>
+    <string name="token_estimate_reserve_invalid">토큰 추정 여유분은 0에서 50 사이의 정수여야 합니다</string>
     <string name="max_tokens_must_be_less_than_context">최대 토큰은 컨텍스트 토큰보다 작아야 합니다</string>
     <string name="model_query_unsupported">이 서비스는 모델 조회를 지원하지 않습니다. 모델 ID를 직접 입력하세요</string>
     <string name="model_query_invalid_response">제공자가 인식할 수 없는 모델 목록을 반환했습니다</string>
@@ -473,6 +476,11 @@
     <string name="prompt_post_processing_strict_desc">반엄격 변환을 적용하고 대화 본문이 user 메시지로 시작하도록 합니다</string>
     <string name="prompt_post_processing_single_user">단일 사용자 메시지</string>
     <string name="prompt_post_processing_single_user_desc">모든 메시지를 user로 변환하고 화자 이름을 추가한 뒤 병합합니다</string>
+    <string name="prompt_example_behavior_title">예시 대화 동작</string>
+    <string name="prompt_example_behavior_desc">실제 대화 기록과 캐릭터 카드 예시 중 남은 컨텍스트 예산을 먼저 사용할 항목을 선택합니다</string>
+    <string name="prompt_example_behavior_normal">기록 우선</string>
+    <string name="prompt_example_behavior_pinned">예시 고정</string>
+    <string name="prompt_example_behavior_disabled">사용 안 함</string>
     <string name="prompt_include_think_context_title">컨텍스트에 생각 블록 포함</string>
     <string name="prompt_include_think_context_desc">비활성화 시, 저장된 &lt;think&gt;...&lt;/think&gt; 블록은 향후 프롬프트에서 제거됩니다.</string>
     <string name="selected_count">%d개 선택됨</string>
@@ -582,6 +590,8 @@
     <string name="prompt_inspector_unavailable">프롬프트 검사기를 열기 전에 응답을 생성하세요</string>
     <string name="prompt_trimmed_warning">컨텍스트 제한에 맞추기 위해 일부 프롬프트 섹션이 제거되었습니다. 자세한 내용은 프롬프트 검사기에서 확인하세요.</string>
     <string name="prompt_tokenizer_model_aware">모델 인식 로컬 BPE</string>
+    <string name="prompt_tokenizer_estimated">프록시 추정</string>
+    <string name="prompt_tokenizer_reserve">%1$d%% 여유분</string>
     <string name="prompt_tokenizer_conservative">보수적 상한</string>
     <string name="prompt_omission_context_budget">최종 컨텍스트 예산에 의해 제거됨</string>
     <string name="prompt_omission_world_info_budget">월드 정보 예산에 의해 제거됨</string>

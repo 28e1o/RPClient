@@ -6,6 +6,7 @@ import me.kafuuneko.rpclient.feature.main.model.MainGroupChatSessionItem
 import me.kafuuneko.rpclient.feature.main.model.MainGenerationParameter
 import me.kafuuneko.rpclient.feature.main.model.MainProviderItem
 import me.kafuuneko.rpclient.feature.main.model.MainSessionSelection
+import me.kafuuneko.rpclient.libs.prompt.ExampleDialogueBehavior
 import me.kafuuneko.rpclient.libs.prompt.PromptPostProcessingMode
 import me.kafuuneko.rpclient.libs.prompt.SummaryInjectionPosition
 import me.kafuuneko.rpclient.libs.prompt.SummaryInjectionRole
@@ -75,6 +76,7 @@ data class MainSettingsState(
     val contextTokens: Int,
     val streamEnabled: Boolean,
     val promptPostProcessingMode: PromptPostProcessingMode,
+    val exampleDialogueBehavior: ExampleDialogueBehavior,
     val includeThinkInContext: Boolean,
     val debugModeEnabled: Boolean,
     val autoSummaryEnabled: Boolean,

@@ -1,6 +1,7 @@
 package me.kafuuneko.rpclient.libs
 
 import com.chibatching.kotpref.KotprefModel
+import me.kafuuneko.rpclient.libs.prompt.ExampleDialogueBehavior
 import me.kafuuneko.rpclient.libs.prompt.SummaryInjectionPosition
 
 /**
@@ -182,6 +183,9 @@ Rules:
 
     // 世界书占 prompt 预算的百分比。
     var worldInfoBudgetPercent by intPref(default = 25)
+
+    // 示例对话的全局保留策略，使用 ExampleDialogueBehavior.persistedValue 持久化。
+    var exampleDialogueBehavior by intPref(default = ExampleDialogueBehavior.default.persistedValue)
 
     // 是否把已保存消息中的 <think>...</think> 思考块继续纳入后续上下文。
     var includeThinkInContext by booleanPref(default = false)

@@ -39,6 +39,18 @@ class AppDatabaseMigrationTest {
             )
             execSQL(
                 """
+                INSERT INTO llm_providers (
+                    id, name, providerType, protocol, baseUrl, apiKey, model,
+                    customHeadersJson, temperature, topP, maxTokens, contextTokens,
+                    sendTemperature, sendTopP, promptPostProcessingMode, isEnabled,
+                    createTime, updateTime
+                ) VALUES (404, 'provider', 'Custom', 'OpenAICompatible',
+                    'https://example.invalid', '', 'model', '', 0.8, 1.0, 1200, 8192,
+                    1, 1, 0, 1, 4, 4)
+                """.trimIndent()
+            )
+            execSQL(
+                """
                 INSERT INTO llm_request_logs (
                     id, createTime, providerName, providerType, protocol, model, isStreaming,
                     requestJson, responseJson
@@ -70,6 +82,12 @@ class AppDatabaseMigrationTest {
             assertEquals(true, cursor.moveToFirst())
             assertEquals("session", cursor.getString(0))
             assertEquals(2L, cursor.getLong(1))
+        }
+        migrated.query(
+            "SELECT tokenEstimateReservePercent FROM llm_providers WHERE id = 404"
+        ).use { cursor ->
+            assertEquals(true, cursor.moveToFirst())
+            assertEquals(15, cursor.getInt(0))
         }
     }
 

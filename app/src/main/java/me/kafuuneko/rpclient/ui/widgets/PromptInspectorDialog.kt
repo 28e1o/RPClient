@@ -218,13 +218,7 @@ private fun InspectionSummary(inspection: PromptInspection) {
                 text = stringResource(
                     R.string.prompt_inspector_tokenizer,
                     inspection.tokenizerName,
-                    stringResource(
-                        if (inspection.tokenizerStrategy == PromptTokenizerStrategy.ModelAware) {
-                            R.string.prompt_tokenizer_model_aware
-                        } else {
-                            R.string.prompt_tokenizer_conservative
-                        }
-                    )
+                    tokenizerStrategyLabel(inspection)
                 ),
                 style = MaterialTheme.typography.bodyMedium
             )
@@ -237,6 +231,22 @@ private fun InspectionSummary(inspection: PromptInspection) {
             )
         }
     }
+}
+
+@Composable
+private fun tokenizerStrategyLabel(inspection: PromptInspection): String {
+    val strategy = stringResource(
+        when (inspection.tokenizerStrategy) {
+            PromptTokenizerStrategy.ModelAware -> R.string.prompt_tokenizer_model_aware
+            PromptTokenizerStrategy.Estimated -> R.string.prompt_tokenizer_estimated
+            PromptTokenizerStrategy.Conservative -> R.string.prompt_tokenizer_conservative
+        }
+    )
+    if (inspection.tokenizerReservePercent <= 0) return strategy
+    return "$strategy · ${stringResource(
+        R.string.prompt_tokenizer_reserve,
+        inspection.tokenizerReservePercent
+    )}"
 }
 
 @Composable
