@@ -487,7 +487,6 @@ class WorldBookActivatorTest {
         val budgeted = fitWorldInfoToBudget(
             result = activated,
             globalTokenBudget = 0,
-            promptTokenBudget = 100,
             lorebooks = emptyMap(),
             tokenizer = object : PromptTokenizer {
                 override val name: String = "Length"

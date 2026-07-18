@@ -1,5 +1,6 @@
 package me.kafuuneko.rpclient.feature.main.presentation
 
+import androidx.compose.ui.graphics.ImageBitmap
 import me.kafuuneko.rpclient.feature.main.model.MainChatSessionItem
 import me.kafuuneko.rpclient.feature.main.model.MainChatSessionGroup
 import me.kafuuneko.rpclient.feature.main.model.MainGroupChatSessionItem
@@ -10,7 +11,6 @@ import me.kafuuneko.rpclient.libs.prompt.ExampleDialogueBehavior
 import me.kafuuneko.rpclient.libs.prompt.PromptPostProcessingMode
 import me.kafuuneko.rpclient.libs.prompt.SummaryInjectionPosition
 import me.kafuuneko.rpclient.libs.prompt.SummaryInjectionRole
-import androidx.compose.ui.graphics.ImageBitmap
 
 /** 应用首页状态树，组合最近会话、全局设置和批量操作对话框。 */
 sealed class MainUiState {
@@ -78,6 +78,9 @@ data class MainSettingsState(
     val promptPostProcessingMode: PromptPostProcessingMode,
     val exampleDialogueBehavior: ExampleDialogueBehavior,
     val includeThinkInContext: Boolean,
+    val worldInfoBudgetPercent: Int,
+    val worldInfoBudgetCap: Int,
+    val worldInfoOverflowAlert: Boolean,
     val debugModeEnabled: Boolean,
     val autoSummaryEnabled: Boolean,
     val summaryTriggerMessageCount: Int,

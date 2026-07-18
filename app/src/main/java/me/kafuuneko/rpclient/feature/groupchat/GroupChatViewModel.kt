@@ -44,6 +44,7 @@ import me.kafuuneko.rpclient.libs.groupchat.model.toGroupChatCharacterCardMode
 import me.kafuuneko.rpclient.libs.groupchat.model.toGroupChatMessageSource
 import me.kafuuneko.rpclient.libs.llm.model.LLMStreamEvent
 import me.kafuuneko.rpclient.libs.prompt.PromptInspection
+import me.kafuuneko.rpclient.libs.prompt.PromptOmissionReason
 import me.kafuuneko.rpclient.libs.prompt.summarySafeContent
 import me.kafuuneko.rpclient.libs.regex.RegexExecutionMode
 import me.kafuuneko.rpclient.libs.regex.RegexPlacement
@@ -1273,8 +1274,21 @@ class GroupChatViewModel :
         mLastPromptInspection = inspection
         val uiState = getOrNull<GroupChatUiState.Normal>() ?: return
         uiState.copy(hasPromptInspection = true).setup()
-        if (inspection.hasOmissions) {
-            AppViewEvent.PopupToastMessageByResId(R.string.prompt_trimmed_warning).tryEmit()
+        val hasWorldInfoOverflow = inspection.omittedItems.any {
+            it.reason == PromptOmissionReason.WorldInfoBudget
+        }
+        val hasContextTrimming = inspection.omittedItems.any {
+            it.reason == PromptOmissionReason.ContextBudget
+        }
+        when {
+            AppModel.worldInfoOverflowAlert && hasWorldInfoOverflow -> {
+                AppViewEvent.PopupToastMessageByResId(
+                    R.string.world_info_budget_overflow_warning
+                ).tryEmit()
+            }
+            hasContextTrimming -> {
+                AppViewEvent.PopupToastMessageByResId(R.string.prompt_trimmed_warning).tryEmit()
+            }
         }
     }
 

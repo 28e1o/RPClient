@@ -13,6 +13,20 @@ class LorebookCodecTest {
     private val codec = LorebookCodec(Gson())
 
     @Test
+    fun missingBookBudgetFollowsGlobalAndIsOmittedOnExport() {
+        val imported = codec.parseLorebook(
+            """{"name":"Imported","entries":{}}"""
+        )
+
+        val exported = JsonParser.parseString(
+            codec.toLorebookJson(imported.lorebook, emptyList())
+        ).asJsonObject
+
+        assertEquals(0, imported.lorebook.tokenBudget)
+        assertFalse(exported.has("tokenBudget"))
+    }
+
+    @Test
     fun importedLorebookSurvivesEditAndExportWithoutCompatibilityLoss() {
         val imported = codec.parseLorebook(
             """

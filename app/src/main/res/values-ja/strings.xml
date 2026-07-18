@@ -294,6 +294,11 @@
     <string name="no_world_books">ワールドブックがありません</string>
     <string name="no_world_books_desc">ワールドブックを作成して、再利用可能なロアエントリの管理を開始します。</string>
     <string name="world_book_editor_subtitle">ローカルライブラリに保存されているロアブックのメタデータとすべてのトリガーエントリを編集します</string>
+    <string name="world_book_token_budget">ワールドブックごとの予算</string>
+    <string name="world_book_budget_follow_global">グローバル設定に従う</string>
+    <string name="world_book_budget_follow_global_helper">グローバルのワールド情報予算を使用し、このワールドブックには追加の上限を設けません</string>
+    <string name="world_book_budget_fixed_tokens">固定トークン</string>
+    <string name="world_book_budget_tokens_helper">0より大きい固定トークン上限を入力してください</string>
     <string name="no_world_book_entries">エントリがありません</string>
     <string name="no_world_book_entries_desc">キーワード、カテゴリ、挿入順序、ロアコンテンツのエントリを追加します。</string>
     <string name="entry_index">エントリ %d</string>
@@ -484,6 +489,15 @@
     <string name="prompt_example_behavior_disabled">無効</string>
     <string name="prompt_include_think_context_title">思考ブロックをコンテキストに含める</string>
     <string name="prompt_include_think_context_desc">無効にすると、保存された &lt;think&gt;...&lt;/think&gt; ブロックが今後のプロンプトから削除されます。</string>
+    <string name="world_info_budget_section">ワールド情報予算</string>
+    <string name="world_info_budget_description">まずコンテキスト割合で予算を計算し、トークン上限が 0 より大きい場合にその上限を適用します。</string>
+    <string name="world_info_context_percent">コンテキスト比率</string>
+    <string name="world_info_context_percent_helper">応答分を予約した後の入力予算の 0～100%。トークン上限より先に計算します</string>
+    <string name="world_info_budget_cap">予算上限</string>
+    <string name="world_info_budget_cap_helper">コンテキスト割合を適用した後のワールド情報トークン上限。0 で上限なし</string>
+    <string name="world_info_overflow_alert">予算超過を通知</string>
+    <string name="world_info_overflow_alert_desc">有効化されたワールド情報が予算不足で省略されたときに通知します</string>
+    <string name="world_info_budget_overflow_warning">有効化されたワールド情報の一部が予算不足のため省略されました。</string>
     <string name="selected_count">%d 件選択</string>
     <string name="delete_selected_sessions_title">選択したセッションを削除</string>
     <string name="delete_selected_sessions_message">選択した %d 件のセッションとすべてのメッセージを削除しますか？この操作は取り消せません。</string>

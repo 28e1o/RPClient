@@ -181,8 +181,14 @@ Rules:
     // 摘要位于聊天内时使用的消息角色，对应 SummaryInjectionRole.persistedValue。
     var summaryInjectionRole by intPref(default = 0)
 
-    // 世界书占 prompt 预算的百分比。
+    // 世界书占输入 Prompt 预算的百分比。
     var worldInfoBudgetPercent by intPref(default = 25)
+
+    // 世界书固定 Token 上限；0 表示仅使用上下文百分比，不额外设上限。
+    var worldInfoBudgetCap by intPref(default = 0)
+
+    // 世界书候选条目因独立预算未进入 Prompt 时是否提示用户。
+    var worldInfoOverflowAlert by booleanPref(default = false)
 
     // 示例对话的全局保留策略，使用 ExampleDialogueBehavior.persistedValue 持久化。
     var exampleDialogueBehavior by intPref(default = ExampleDialogueBehavior.default.persistedValue)

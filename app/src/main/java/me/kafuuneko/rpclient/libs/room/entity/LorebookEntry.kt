@@ -56,7 +56,7 @@ data class LorebookEntry(
     val role: Int = ROLE_SYSTEM,
     // 触发概率，0-100；命中关键词后仍会按概率抽取。
     val probability: Int = 100,
-    // 是否忽略世界书预算；开启后该条目不计入 worldInfoBudgetPercent 裁剪。
+    // 是否忽略世界书预算；开启后该条目不计入全局和单本预算裁剪。
     val ignoreBudget: Boolean = false,
     // 条目级扫描深度；为空时继承所属世界书的扫描深度。
     val scanDepth: Int? = null,

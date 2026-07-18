@@ -16,6 +16,73 @@ class WorldBookBudgeterTest {
     }
 
     @Test
+    fun globalBudgetAppliesCapAfterContextPercentage() {
+        assertEquals(
+            1_200,
+            resolveWorldInfoBudget(10_000, 25, 1_200)
+        )
+        assertEquals(
+            2_500,
+            resolveWorldInfoBudget(10_000, 25, 0)
+        )
+        assertEquals(
+            2_500,
+            resolveWorldInfoBudget(10_000, 25, 4_000)
+        )
+    }
+
+    @Test
+    fun globalBudgetMatchesSillyTavernRoundingAndMinimum() {
+        assertEquals(
+            1,
+            resolveWorldInfoBudget(1, 50, 0)
+        )
+        assertEquals(
+            1,
+            resolveWorldInfoBudget(10_000, 0, 0)
+        )
+        assertEquals(
+            2,
+            resolveWorldInfoBudget(5, 30, 0)
+        )
+    }
+
+    @Test
+    fun globalBudgetNormalizesPersistedSettings() {
+        assertEquals(
+            10_000,
+            resolveWorldInfoBudget(10_000, 120, 0)
+        )
+        assertEquals(
+            1,
+            resolveWorldInfoBudget(10_000, -5, 0)
+        )
+        assertEquals(
+            2_500,
+            resolveWorldInfoBudget(10_000, 25, 12_000)
+        )
+        assertEquals(
+            1,
+            resolveWorldInfoBudget(-1, 25, -1)
+        )
+    }
+
+    @Test
+    fun entryExactlyReachingGlobalBudgetIsOmittedLikeSillyTavern() {
+        val entry = entry(id = 1L, content = "1234567890", order = 10)
+
+        val selection = fitWorldInfoToBudget(
+            result = WorldBookActivationResult(listOf(entry)),
+            globalTokenBudget = 10,
+            lorebooks = emptyMap(),
+            tokenizer = tokenizer
+        )
+
+        assertTrue(selection.result.activatedEntries.isEmpty())
+        assertEquals(PromptOmissionReason.WorldInfoBudget, selection.omittedItems.single().reason)
+    }
+
+    @Test
     fun constantEntriesAreBudgetedBeforeHigherOrderNormalEntries() {
         val constant = entry(id = 1L, content = "CCCC", constant = true, order = 1)
         val normal = entry(id = 2L, content = "NNNN", constant = false, order = 100)
@@ -23,7 +90,6 @@ class WorldBookBudgeterTest {
         val selection = fitWorldInfoToBudget(
             result = WorldBookActivationResult(listOf(normal, constant)),
             globalTokenBudget = 6,
-            promptTokenBudget = 100,
             lorebooks = emptyMap(),
             tokenizer = tokenizer
         )
@@ -40,7 +106,6 @@ class WorldBookBudgeterTest {
         val selection = fitWorldInfoToBudget(
             result = WorldBookActivationResult(listOf(first, second)),
             globalTokenBudget = 100,
-            promptTokenBudget = 100,
             lorebooks = mapOf(
                 1L to Lorebook(id = 1L, name = "Book", tokenBudget = 10)
             ),
@@ -52,13 +117,44 @@ class WorldBookBudgeterTest {
     }
 
     @Test
+    fun smallLorebookBudgetIsAnAbsoluteTokenLimit() {
+        val entry = entry(id = 1L, content = "x".repeat(26), order = 10)
+
+        val selection = fitWorldInfoToBudget(
+            result = WorldBookActivationResult(listOf(entry)),
+            globalTokenBudget = 100,
+            lorebooks = mapOf(
+                1L to Lorebook(id = 1L, name = "Book", tokenBudget = 25)
+            ),
+            tokenizer = tokenizer
+        )
+
+        assertEquals(emptyList<LorebookEntry>(), selection.result.activatedEntries)
+        assertEquals(PromptOmissionReason.WorldInfoBudget, selection.omittedItems.single().reason)
+    }
+
+    @Test
+    fun zeroLorebookBudgetFollowsGlobalBudget() {
+        val entry = entry(id = 1L, content = "x".repeat(30), order = 10)
+
+        val selection = fitWorldInfoToBudget(
+            result = WorldBookActivationResult(listOf(entry)),
+            globalTokenBudget = 40,
+            lorebooks = mapOf(1L to Lorebook(id = 1L, name = "Book")),
+            tokenizer = tokenizer
+        )
+
+        assertEquals(listOf(entry), selection.result.activatedEntries)
+        assertTrue(selection.omittedItems.isEmpty())
+    }
+
+    @Test
     fun largeLorebookBudgetIsAnAbsoluteTokenLimit() {
         val entry = entry(id = 1L, content = "x".repeat(102), order = 10)
 
         val selection = fitWorldInfoToBudget(
             result = WorldBookActivationResult(listOf(entry)),
             globalTokenBudget = 1_000,
-            promptTokenBudget = 1_000,
             lorebooks = mapOf(
                 1L to Lorebook(id = 1L, name = "Book", tokenBudget = 101)
             ),
@@ -81,7 +177,6 @@ class WorldBookBudgeterTest {
         val selection = fitWorldInfoToBudget(
             result = activated,
             globalTokenBudget = 100,
-            promptTokenBudget = 100,
             lorebooks = emptyMap(),
             tokenizer = tokenizer
         )

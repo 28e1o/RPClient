@@ -41,6 +41,50 @@ class PromptRequestFinalizerTest {
     }
 
     @Test
+    fun selectedWorldInfoIsNotDroppableWithHistory() {
+        val result = finalize(
+            drafts = listOf(
+                draft("Required", priority = 1_000, canDrop = false),
+                draft(
+                    "H".repeat(30),
+                    priority = PromptRetentionPolicy.HISTORY,
+                    canDrop = true
+                ),
+                draft(
+                    "W".repeat(30),
+                    priority = 1_000,
+                    canDrop = false,
+                    sourceKind = PromptSourceKind.WorldInfo
+                )
+            ),
+            contextTokens = 75,
+            responseTokens = 10
+        )
+
+        assertFalse(result.request.messages.any { it.content == "H".repeat(30) })
+        assertTrue(result.request.messages.any { it.content == "W".repeat(30) })
+    }
+
+    @Test
+    fun selectedWorldInfoIsNotSilentlyTrimmedAfterBudgetSelection() {
+        assertThrows(PromptBudgetExceededException::class.java) {
+            finalize(
+                drafts = listOf(
+                    draft("Required", priority = 1_000, canDrop = false),
+                    draft(
+                        "W".repeat(80),
+                        priority = 1_000,
+                        canDrop = false,
+                        sourceKind = PromptSourceKind.WorldInfo
+                    )
+                ),
+                contextTokens = 50,
+                responseTokens = 10
+            )
+        }
+    }
+
+    @Test
     fun countsSingleUserPostProcessingBeforeApplyingBudget() {
         val result = finalize(
             drafts = listOf(
@@ -276,12 +320,13 @@ class PromptRequestFinalizerTest {
     private fun draft(
         content: String,
         priority: Int,
-        canDrop: Boolean
+        canDrop: Boolean,
+        sourceKind: PromptSourceKind = PromptSourceKind.Other
     ): PromptMessageDraft {
         return PromptMessageDraft(
             role = LLMMessageRole.System,
             content = content,
-            source = PromptSource(PromptSourceKind.Other, content.take(8)),
+            source = PromptSource(sourceKind, content.take(8)),
             retentionPriority = priority,
             canDrop = canDrop
         )

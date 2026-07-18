@@ -64,6 +64,12 @@ sealed class MainUiIntent {
 
     data class ToggleIncludeThinkInContext(val enabled: Boolean) : MainUiIntent()
 
+    data class ChangeWorldInfoBudgetPercent(val value: Int) : MainUiIntent()
+
+    data class ChangeWorldInfoBudgetCap(val value: String) : MainUiIntent()
+
+    data class ToggleWorldInfoOverflowAlert(val enabled: Boolean) : MainUiIntent()
+
     data class ToggleDebugModeEnabled(val enabled: Boolean) : MainUiIntent()
 
     data class ToggleAutoSummaryEnabled(val enabled: Boolean) : MainUiIntent()

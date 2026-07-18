@@ -293,6 +293,11 @@
     <string name="no_world_books">Aucun livre d\'univers</string>
     <string name="no_world_books_desc">Créez un livre d\'univers pour commencer à gérer des entrées de lore réutilisables.</string>
     <string name="world_book_editor_subtitle">Modifier les métadonnées du lorebook et chaque entrée de déclencheur enregistrée dans la bibliothèque locale</string>
+    <string name="world_book_token_budget">Budget par lorebook</string>
+    <string name="world_book_budget_follow_global">Suivre le budget global</string>
+    <string name="world_book_budget_follow_global_helper">Utilise le budget global des informations du monde sans ajouter de limite pour ce lorebook</string>
+    <string name="world_book_budget_fixed_tokens">Jetons fixes</string>
+    <string name="world_book_budget_tokens_helper">Saisissez une limite fixe de jetons supérieure à zéro pour ce lorebook</string>
     <string name="no_world_book_entries">Aucune entrée</string>
     <string name="no_world_book_entries_desc">Ajoutez des entrées pour les mots-clés, les catégories, l\'ordre d\'insertion et le contenu du lore.</string>
     <string name="entry_index">Entrée %d</string>
@@ -483,6 +488,15 @@
     <string name="prompt_example_behavior_disabled">Désactivé</string>
     <string name="prompt_include_think_context_title">Inclure les blocs de réflexion dans le contexte</string>
     <string name="prompt_include_think_context_desc">Lorsqu\'il est désactivé, les blocs &lt;think&gt;...&lt;/think&gt; enregistrés sont retirés des prompts futurs.</string>
+    <string name="world_info_budget_section">Budget des informations du monde</string>
+    <string name="world_info_budget_description">Le pourcentage du contexte est calculé d\'abord, puis limité par le plafond de jetons lorsqu\'il est supérieur à 0.</string>
+    <string name="world_info_context_percent">Proportion du contexte</string>
+    <string name="world_info_context_percent_helper">0–100 % du budget d\'entrée après réservation de la réponse ; calculé avant le plafond de jetons</string>
+    <string name="world_info_budget_cap">Plafond du budget</string>
+    <string name="world_info_budget_cap_helper">Nombre maximal de jetons d\'informations du monde après application du pourcentage ; 0 désactive le plafond</string>
+    <string name="world_info_overflow_alert">Alerte de dépassement du budget</string>
+    <string name="world_info_overflow_alert_desc">Avertir lorsque des entrées activées sont ignorées à cause du budget</string>
+    <string name="world_info_budget_overflow_warning">Certaines entrées activées ont été ignorées à cause du budget des informations du monde.</string>
     <string name="selected_count">%d sélectionnés</string>
     <string name="delete_selected_sessions_title">Supprimer les sessions sélectionnées</string>
     <string name="delete_selected_sessions_message">Supprimer les %d sessions sélectionnées et tous leurs messages ? Cette action est irréversible.</string>

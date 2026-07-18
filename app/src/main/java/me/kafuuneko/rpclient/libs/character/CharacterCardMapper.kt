@@ -130,7 +130,7 @@ class CharacterCardMapper(
             name = name,
             description = optString("description"),
             scanDepth = optInt("scan_depth", 2),
-            tokenBudget = optInt("token_budget", 25),
+            tokenBudget = optInt("token_budget", 0),
             recursiveScanning = optBoolean("recursive_scanning", false),
             extensionsJson = gson.toJson(optJsonObject("extensions") ?: JsonObject())
         )
@@ -190,7 +190,8 @@ class CharacterCardMapper(
         book.addProperty("name", name)
         book.addProperty("description", description)
         book.addProperty("scan_depth", scanDepth)
-        book.addProperty("token_budget", tokenBudget)
+        // 0 是本地“跟随全局”哨兵值，导出时省略以免第三方客户端将其解释成零预算。
+        if (tokenBudget > 0) book.addProperty("token_budget", tokenBudget)
         book.addProperty("recursive_scanning", recursiveScanning)
         book.add("extensions", parseObjectOrEmpty(extensionsJson))
         val array = JsonArray()

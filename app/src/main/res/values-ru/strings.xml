@@ -293,6 +293,11 @@
     <string name="no_world_books">Нет книг миров</string>
     <string name="no_world_books_desc">Создайте книгу мира, чтобы начать управлять многоразовыми записями лора.</string>
     <string name="world_book_editor_subtitle">Редактирование метаданных лорбука и каждой записи триггера, сохранённой в локальной библиотеке</string>
+    <string name="world_book_token_budget">Бюджет отдельной книги</string>
+    <string name="world_book_budget_follow_global">Следовать глобальному</string>
+    <string name="world_book_budget_follow_global_helper">Использует глобальный бюджет информации мира без дополнительного ограничения для этой книги</string>
+    <string name="world_book_budget_fixed_tokens">Фиксированные токены</string>
+    <string name="world_book_budget_tokens_helper">Введите фиксированный лимит токенов больше нуля</string>
     <string name="no_world_book_entries">Нет записей</string>
     <string name="no_world_book_entries_desc">Добавьте записи для ключевых слов, категорий, порядка вставки и содержимого лора.</string>
     <string name="entry_index">Запись %d</string>
@@ -483,6 +488,15 @@
     <string name="prompt_example_behavior_disabled">Отключено</string>
     <string name="prompt_include_think_context_title">Включать блоки размышлений в контекст</string>
     <string name="prompt_include_think_context_desc">Если выключено, сохранённые блоки &lt;think&gt;...&lt;/think&gt; будут удалены из будущих промптов.</string>
+    <string name="world_info_budget_section">Бюджет информации мира</string>
+    <string name="world_info_budget_description">Сначала бюджет рассчитывается по проценту контекста, затем применяется ограничение токенов, если оно больше 0.</string>
+    <string name="world_info_context_percent">Доля контекста</string>
+    <string name="world_info_context_percent_helper">0–100 % входного бюджета после резервирования ответа; рассчитывается до ограничения токенов</string>
+    <string name="world_info_budget_cap">Ограничение бюджета</string>
+    <string name="world_info_budget_cap_helper">Максимум токенов информации мира после применения процента контекста; 0 отключает ограничение</string>
+    <string name="world_info_overflow_alert">Предупреждение о превышении бюджета</string>
+    <string name="world_info_overflow_alert_desc">Предупреждать, если активированные записи пропущены из-за бюджета</string>
+    <string name="world_info_budget_overflow_warning">Некоторые активированные записи информации мира пропущены из-за бюджета.</string>
     <string name="selected_count">Выбрано: %d</string>
     <string name="delete_selected_sessions_title">Удалить выбранные сессии</string>
     <string name="delete_selected_sessions_message">Удалить %d выбранных сессий и все их сообщения? Это действие нельзя отменить.</string>

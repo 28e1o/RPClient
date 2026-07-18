@@ -4,6 +4,7 @@ import android.os.Bundle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import me.kafuuneko.rpclient.R
+import me.kafuuneko.rpclient.feature.worldbookedit.model.WorldBookBudgetMode
 import me.kafuuneko.rpclient.feature.worldbookedit.model.WorldBookEditForm
 import me.kafuuneko.rpclient.feature.worldbookedit.model.hasUnsavedChangesFrom
 import me.kafuuneko.rpclient.feature.worldbookedit.model.toComparableForm
@@ -70,6 +71,23 @@ class WorldBookEditViewModel : CoreViewModelWithEvent<WorldBookEditUiIntent, Wor
     private fun onChangeName(intent: WorldBookEditUiIntent.ChangeName) =
         updateForm { copy(name = intent.value) }
 
+    @UiIntentObserver(WorldBookEditUiIntent.SelectTokenBudgetMode::class)
+    private fun onSelectTokenBudgetMode(intent: WorldBookEditUiIntent.SelectTokenBudgetMode) =
+        updateForm {
+            if (tokenBudgetMode == intent.mode) return@updateForm this
+            copy(
+                tokenBudgetMode = intent.mode,
+                tokenBudgetInput = tokenBudgetInput.ifBlank {
+                    DEFAULT_FIXED_TOKEN_BUDGET.toString()
+                }
+            )
+        }
+
+    @UiIntentObserver(WorldBookEditUiIntent.ChangeTokenBudgetTokens::class)
+    private fun onChangeTokenBudgetTokens(intent: WorldBookEditUiIntent.ChangeTokenBudgetTokens) {
+        updateForm { copy(tokenBudgetInput = intent.value.filter { it in '0'..'9' }) }
+    }
+
     @UiIntentObserver(WorldBookEditUiIntent.AddEntry::class)
     private suspend fun onAddEntry() {
         val lorebookId = saveWorldBookForEntryNavigation() ?: return
@@ -99,6 +117,12 @@ class WorldBookEditViewModel : CoreViewModelWithEvent<WorldBookEditUiIntent, Wor
         val form = uiState.form
         if (form.name.isBlank()) {
             AppViewEvent.PopupToastMessageByResId(R.string.world_book_name_empty).tryEmit()
+            return
+        }
+        if (form.resolvedTokenBudget == null) {
+            AppViewEvent.PopupToastMessageByResId(
+                R.string.world_book_budget_tokens_helper
+            ).tryEmit()
             return
         }
         uiState.copy(loadState = WorldBookEditLoadState.Saving).setup()
@@ -162,6 +186,12 @@ class WorldBookEditViewModel : CoreViewModelWithEvent<WorldBookEditUiIntent, Wor
             AppViewEvent.PopupToastMessageByResId(R.string.world_book_name_empty).tryEmit()
             return null
         }
+        if (uiState.form.resolvedTokenBudget == null) {
+            AppViewEvent.PopupToastMessageByResId(
+                R.string.world_book_budget_tokens_helper
+            ).tryEmit()
+            return null
+        }
         val lorebookId = withContext(Dispatchers.IO) {
             mLorebookRepository.saveLorebook(uiState.form.toLorebook())
         }
@@ -184,3 +214,5 @@ class WorldBookEditViewModel : CoreViewModelWithEvent<WorldBookEditUiIntent, Wor
     }
 
 }
+
+private const val DEFAULT_FIXED_TOKEN_BUDGET = 1024

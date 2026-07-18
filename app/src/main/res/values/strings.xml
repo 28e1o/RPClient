@@ -293,6 +293,11 @@
     <string name="no_world_books">No world books</string>
     <string name="no_world_books_desc">Create a world book to start managing reusable lore entries.</string>
     <string name="world_book_editor_subtitle">Edit lorebook metadata and every trigger entry saved in the local library</string>
+    <string name="world_book_token_budget">Book budget</string>
+    <string name="world_book_budget_follow_global">Follow global</string>
+    <string name="world_book_budget_follow_global_helper">Uses the global World Info budget without adding another limit for this book</string>
+    <string name="world_book_budget_fixed_tokens">Fixed tokens</string>
+    <string name="world_book_budget_tokens_helper">Enter a positive fixed Token limit for this book</string>
     <string name="no_world_book_entries">No entries</string>
     <string name="no_world_book_entries_desc">Add entries for keywords, categories, insertion order and lore content.</string>
     <string name="entry_index">Entry %d</string>
@@ -491,6 +496,15 @@
     <string name="prompt_post_processing_single_user_desc">Convert every message to user, add speaker names, then merge them.</string>
     <string name="prompt_example_behavior_title">Example dialogue behavior</string>
     <string name="prompt_example_behavior_desc">Choose whether real chat history or character-card examples receive the remaining context budget first.</string>
+    <string name="world_info_budget_section">World Info budget</string>
+    <string name="world_info_budget_description">The context percentage is calculated first, then limited by the Token cap when it is greater than 0.</string>
+    <string name="world_info_context_percent">Context percentage</string>
+    <string name="world_info_context_percent_helper">0–100% of the input budget after reserving the response; evaluated before the Token cap</string>
+    <string name="world_info_budget_cap">Budget cap</string>
+    <string name="world_info_budget_cap_helper">Maximum World Info tokens after applying the context percentage; 0 disables the cap</string>
+    <string name="world_info_overflow_alert">Alert when budget is exhausted</string>
+    <string name="world_info_overflow_alert_desc">Show a notice when activated entries cannot fit the World Info budget.</string>
+    <string name="world_info_budget_overflow_warning">Some activated World Info entries were omitted by the World Info budget.</string>
     <string name="prompt_example_behavior_normal">Prefer history</string>
     <string name="prompt_example_behavior_pinned">Pin examples</string>
     <string name="prompt_example_behavior_disabled">Disabled</string>

@@ -699,6 +699,73 @@ class ChatPromptBuilderTest {
     }
 
     @Test
+    fun selectedWorldInfoIsReservedBeforeOlderHistory() {
+        val worldContent = "WORLD_" + "w".repeat(44)
+        val result = builder(ExampleDialogueBehavior.Normal).buildWithMetadata(
+            context(
+                messages = listOf(
+                    chatMessage(
+                        id = 1L,
+                        source = ChatMessage.Source.Char,
+                        content = "OLD_HISTORY_" + "o".repeat(188)
+                    ),
+                    chatMessage(
+                        id = 2L,
+                        source = ChatMessage.Source.User,
+                        content = "LATEST"
+                    )
+                ),
+                entries = listOf(
+                    lorebookEntry(
+                        id = 30L,
+                        order = 100,
+                        depth = 0,
+                        content = worldContent,
+                        position = LorebookEntry.POSITION_BEFORE
+                    )
+                ),
+                maxContextTokens = 320,
+                maxResponseTokens = 40
+            )
+        )
+
+        assertTrue(result.request.messages.any { it.content.contains(worldContent) })
+        assertTrue(result.request.messages.any { it.content == "LATEST" })
+        assertFalse(result.request.messages.any { it.content.contains("OLD_HISTORY_") })
+        assertTrue(
+            result.inspection.omittedItems.any {
+                it.source.kind == PromptSourceKind.ChatHistory &&
+                    it.reason == PromptOmissionReason.ContextBudget
+            }
+        )
+    }
+
+    @Test
+    fun oversizedIgnoredBudgetWorldInfoIsNotSilentlyTrimmed() {
+        val worldContent = "OVERSIZED_WORLD_" + "w".repeat(400)
+        assertThrows(PromptBudgetExceededException::class.java) {
+            builder(ExampleDialogueBehavior.Normal).buildWithMetadata(
+                context(
+                    messages = listOf(
+                        chatMessage(1L, ChatMessage.Source.User, "LATEST")
+                    ),
+                    entries = listOf(
+                        lorebookEntry(
+                            id = 31L,
+                            order = 100,
+                            depth = 0,
+                            content = worldContent,
+                            position = LorebookEntry.POSITION_BEFORE
+                        ).copy(ignoreBudget = true)
+                    ),
+                    maxContextTokens = 500,
+                    maxResponseTokens = 100
+                )
+            )
+        }
+    }
+
+    @Test
     fun expandedHistoryMacroCannotBypassFinalBudget() {
         val character = Character(
             id = 1L,

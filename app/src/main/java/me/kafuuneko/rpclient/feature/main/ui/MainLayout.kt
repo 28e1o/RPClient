@@ -112,6 +112,7 @@ import me.kafuuneko.rpclient.ui.widgets.RpIconBubble
 import me.kafuuneko.rpclient.ui.widgets.RpInfoCard
 import me.kafuuneko.rpclient.ui.widgets.RpMetaRow
 import me.kafuuneko.rpclient.ui.widgets.RpPageTitle
+import me.kafuuneko.rpclient.ui.widgets.RpPercentageSlider
 import me.kafuuneko.rpclient.ui.widgets.RpSectionHeader
 import androidx.compose.material.icons.rounded.Image as ImageIcon
 
@@ -822,11 +823,58 @@ private fun SettingsPage(
             item { ParameterPanel(state, emit) }
         }
         item { PromptBehaviorPanel(state, emit) }
+        item { WorldInfoBudgetPanel(state, emit) }
         item { PromptPresetEntryCard { MainUiIntent.OpenPromptPreset.emit() } }
         item { RegexScriptEntryCard { MainUiIntent.OpenRegexScripts.emit() } }
         item { SummaryPanel(state, emit) }
         item { DebugPanel(state, emit) }
         item { AboutEntryCard { emit(MainUiIntent.OpenAbout) } }
+    }
+}
+
+@Composable
+private fun WorldInfoBudgetPanel(
+    state: MainSettingsState,
+    emit: MainUiIntent.() -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+        ),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            RpSectionHeader(title = stringResource(R.string.world_info_budget_section))
+            Text(
+                text = stringResource(R.string.world_info_budget_description),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.58f)
+            )
+            RpPercentageSlider(
+                title = stringResource(R.string.world_info_context_percent),
+                value = state.worldInfoBudgetPercent,
+                helper = stringResource(R.string.world_info_context_percent_helper),
+                onValueChange = { MainUiIntent.ChangeWorldInfoBudgetPercent(it).emit() }
+            )
+            NumberSettingRow(
+                title = stringResource(R.string.world_info_budget_cap),
+                value = state.worldInfoBudgetCap.toString(),
+                helper = stringResource(R.string.world_info_budget_cap_helper),
+                onValueChange = { MainUiIntent.ChangeWorldInfoBudgetCap(it).emit() }
+            )
+            SettingSwitchRow(
+                icon = Icons.Rounded.Book,
+                title = stringResource(R.string.world_info_overflow_alert),
+                subtitle = stringResource(R.string.world_info_overflow_alert_desc),
+                checked = state.worldInfoOverflowAlert,
+                onCheckedChange = { MainUiIntent.ToggleWorldInfoOverflowAlert(it).emit() }
+            )
+        }
     }
 }
 
@@ -1586,6 +1634,9 @@ private fun MainLayoutPreview() {
                     promptPostProcessingMode = PromptPostProcessingMode.None,
                     exampleDialogueBehavior = ExampleDialogueBehavior.default,
                     includeThinkInContext = false,
+                    worldInfoBudgetPercent = 25,
+                    worldInfoBudgetCap = 0,
+                    worldInfoOverflowAlert = true,
                     debugModeEnabled = false,
                     autoSummaryEnabled = false,
                     summaryTriggerMessageCount = 20,

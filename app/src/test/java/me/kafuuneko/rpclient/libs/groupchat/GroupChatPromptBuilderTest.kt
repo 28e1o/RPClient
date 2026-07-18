@@ -16,12 +16,15 @@ import me.kafuuneko.rpclient.libs.regex.ScopedRegexScript
 import me.kafuuneko.rpclient.libs.llm.model.LLMMessageRole
 import me.kafuuneko.rpclient.libs.prompt.ExampleDialogueBehavior
 import me.kafuuneko.rpclient.libs.prompt.ExampleDialogueBehaviorProvider
+import me.kafuuneko.rpclient.libs.prompt.PromptOmissionReason
+import me.kafuuneko.rpclient.libs.prompt.PromptBudgetExceededException
 import me.kafuuneko.rpclient.libs.prompt.PromptRequestFinalizer
 import me.kafuuneko.rpclient.libs.prompt.PromptSourceKind
 import me.kafuuneko.rpclient.libs.prompt.PromptTokenizer
 import me.kafuuneko.rpclient.libs.prompt.PromptTokenizerStrategy
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -384,6 +387,101 @@ class GroupChatPromptBuilderTest {
         assertTrue(result.inspection.finalTokenCount <= 900)
         assertTrue(result.request.messages.any { it.content.contains("Alex: Latest") })
         assertTrue(result.inspection.omittedItems.isNotEmpty())
+    }
+
+    @Test
+    fun selectedGroupWorldInfoIsReservedBeforeOlderHistory() {
+        val lyra = character(1, "Lyra")
+        val worldContent = "WORLD_" + "w".repeat(94)
+        val tokenizer = object : PromptTokenizer {
+            override val name = "Character count"
+            override val strategy = PromptTokenizerStrategy.ModelAware
+            override fun countText(text: String): Int = text.length
+        }
+        val result = GroupChatPromptBuilder(
+            mRequestFinalizer = PromptRequestFinalizer { tokenizer }
+        ).buildWithMetadata(
+            GroupChatPromptContext(
+                session = GroupChatSession(
+                    id = 1,
+                    title = "Crew",
+                    createTime = 1,
+                    latestTime = 1,
+                    userName = "Alex",
+                    userDescription = ""
+                ),
+                members = listOf(member(lyra, 0)),
+                speaker = lyra,
+                messages = listOf(
+                    message(
+                        GroupChatMessage.Source.Character,
+                        "Lyra",
+                        "OLD_HISTORY_" + "o".repeat(388)
+                    ),
+                    message(GroupChatMessage.Source.User, "Alex", "LATEST")
+                ),
+                provider = provider(contextTokens = 700, maxTokens = 100),
+                candidateLorebookEntries = listOf(
+                    worldEntry(
+                        id = 93L,
+                        order = 100,
+                        content = worldContent,
+                        position = LorebookEntry.POSITION_BEFORE
+                    )
+                )
+            )
+        )
+
+        assertTrue(result.request.messages.any { it.content.contains(worldContent) })
+        assertTrue(result.request.messages.any { it.content.contains("LATEST") })
+        assertFalse(result.request.messages.any { it.content.contains("OLD_HISTORY_") })
+        assertTrue(
+            result.inspection.omittedItems.any {
+                it.source.kind == PromptSourceKind.ChatHistory &&
+                    it.reason == PromptOmissionReason.ContextBudget
+            }
+        )
+    }
+
+    @Test
+    fun oversizedIgnoredBudgetGroupWorldInfoIsNotSilentlyTrimmed() {
+        val lyra = character(1, "Lyra")
+        val worldContent = "OVERSIZED_WORLD_" + "w".repeat(800)
+        val tokenizer = object : PromptTokenizer {
+            override val name = "Character count"
+            override val strategy = PromptTokenizerStrategy.ModelAware
+            override fun countText(text: String): Int = text.length
+        }
+        assertThrows(PromptBudgetExceededException::class.java) {
+            GroupChatPromptBuilder(
+                mRequestFinalizer = PromptRequestFinalizer { tokenizer }
+            ).buildWithMetadata(
+                GroupChatPromptContext(
+                    session = GroupChatSession(
+                        id = 1,
+                        title = "Crew",
+                        createTime = 1,
+                        latestTime = 1,
+                        userName = "Alex",
+                        userDescription = ""
+                    ),
+                    members = listOf(member(lyra, 0)),
+                    speaker = lyra,
+                    messages = listOf(
+                        message(GroupChatMessage.Source.User, "Alex", "LATEST")
+                    ),
+                    provider = provider(contextTokens = 700, maxTokens = 100),
+                    candidateLorebookEntries = listOf(
+                        worldEntry(
+                            id = 94L,
+                            order = 100,
+                            content = worldContent,
+                            position = LorebookEntry.POSITION_BEFORE
+                        ).copy(ignoreBudget = true)
+                    )
+                )
+            )
+        }
     }
 
     @Test

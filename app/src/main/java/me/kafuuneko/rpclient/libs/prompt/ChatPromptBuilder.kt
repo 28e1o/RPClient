@@ -52,7 +52,11 @@ class ChatPromptBuilder(
     fun buildWithMetadata(context: PromptBuildContext): PromptBuildResult {
         val exampleBehavior = mExampleDialogueBehaviorProvider.current()
         val maxPromptTokens = (context.maxContextTokens - context.maxResponseTokens).coerceAtLeast(0)
-        val worldBudget = maxPromptTokens * readWorldInfoBudgetPercent().coerceIn(0, 40) / 100
+        val worldBudget = resolveWorldInfoBudget(
+            promptTokenBudget = maxPromptTokens,
+            contextPercent = readWorldInfoBudgetPercent(),
+            tokenBudgetCap = readWorldInfoBudgetCap()
+        )
         val tokenizer = mRequestFinalizer.tokenizerFor(context.provider)
         val regexHits = mutableListOf<RegexExecutionHit>()
         val regexErrors = mutableListOf<RegexExecutionError>()
@@ -80,7 +84,6 @@ class ChatPromptBuilder(
         val worldSelection = fitWorldInfoToBudget(
             result = activatedWorldInfo,
             globalTokenBudget = worldBudget,
-            promptTokenBudget = maxPromptTokens,
             lorebooks = context.candidateLorebooks,
             tokenizer = tokenizer
         )
@@ -237,8 +240,8 @@ class ChatPromptBuilder(
                 role = LLMMessageRole.System,
                 content = formatWorldInfo(it.content),
                 source = PromptSource(PromptSourceKind.WorldInfo, it.name, it.id),
-                retentionPriority = PRIORITY_WORLD_INFO,
-                canDrop = true
+                retentionPriority = PRIORITY_ESSENTIAL,
+                canDrop = false
             )
         }
         beforeHistory += PromptPiece.required(
@@ -273,8 +276,8 @@ class ChatPromptBuilder(
                 role = LLMMessageRole.System,
                 content = formatWorldInfo(it.content),
                 source = PromptSource(PromptSourceKind.WorldInfo, it.name, it.id),
-                retentionPriority = PRIORITY_WORLD_INFO,
-                canDrop = true
+                retentionPriority = PRIORITY_ESSENTIAL,
+                canDrop = false
             )
         }
 
@@ -321,8 +324,8 @@ class ChatPromptBuilder(
                 role = LLMMessageRole.System,
                 content = entry.content,
                 source = PromptSource(PromptSourceKind.WorldInfo, entry.name, entry.id),
-                retentionPriority = PRIORITY_WORLD_INFO,
-                canDrop = true,
+                retentionPriority = PRIORITY_ESSENTIAL,
+                canDrop = false,
                 depth = USER_NOTE_DEPTH,
                 order = AN_TOP_ORDER,
                 tieBreaker = index.toLong()
@@ -345,8 +348,8 @@ class ChatPromptBuilder(
                 role = LLMMessageRole.System,
                 content = entry.content,
                 source = PromptSource(PromptSourceKind.WorldInfo, entry.name, entry.id),
-                retentionPriority = PRIORITY_WORLD_INFO,
-                canDrop = true,
+                retentionPriority = PRIORITY_ESSENTIAL,
+                canDrop = false,
                 depth = USER_NOTE_DEPTH,
                 order = AN_BOTTOM_ORDER,
                 tieBreaker = index.toLong()
@@ -376,8 +379,8 @@ class ChatPromptBuilder(
                 role = group.role,
                 content = group.entries.joinToString("\n") { it.content },
                 source = sources.first(),
-                retentionPriority = PRIORITY_WORLD_INFO,
-                canDrop = true,
+                retentionPriority = PRIORITY_ESSENTIAL,
+                canDrop = false,
                 depth = group.depth.coerceAtLeast(0),
                 order = first.order,
                 tieBreaker = first.id,
@@ -780,6 +783,11 @@ class ChatPromptBuilder(
         return runCatching { AppModel.worldInfoBudgetPercent }.getOrDefault(DEFAULT_WORLD_INFO_BUDGET_PERCENT)
     }
 
+    private fun readWorldInfoBudgetCap(): Int {
+        return runCatching { AppModel.worldInfoBudgetCap }
+            .getOrDefault(0)
+    }
+
     private fun readCharacterMainPrompt(context: PromptBuildContext): String {
         val original = readMainPrompt()
         val override = context.character.systemPrompt.trim()
@@ -840,7 +848,6 @@ class ChatPromptBuilder(
         const val DEFAULT_WORLD_INFO_BUDGET_PERCENT = 25
         const val PRIORITY_AUXILIARY = 20
         const val PRIORITY_NEW_CHAT = 30
-        const val PRIORITY_WORLD_INFO = 40
         const val PRIORITY_USER_NOTE = 300
         const val PRIORITY_CHARACTER_NOTE = 310
         const val PRIORITY_ESSENTIAL = 1_000

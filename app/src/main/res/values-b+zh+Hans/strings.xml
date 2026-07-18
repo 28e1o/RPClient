@@ -292,6 +292,11 @@
     <string name="no_world_books">暂无世界书</string>
     <string name="no_world_books_desc">创建世界书以开始管理可复用的设定条目。</string>
     <string name="world_book_editor_subtitle">编辑世界书元数据和保存在本地库中的所有触发条目</string>
+    <string name="world_book_token_budget">单本预算</string>
+    <string name="world_book_budget_follow_global">跟随全局</string>
+    <string name="world_book_budget_follow_global_helper">使用全局世界书预算，不对本书增加额外限制</string>
+    <string name="world_book_budget_fixed_tokens">固定 Token</string>
+    <string name="world_book_budget_tokens_helper">请输入大于 0 的固定 Token 上限</string>
     <string name="no_world_book_entries">暂无条目</string>
     <string name="no_world_book_entries_desc">添加用于关键词、分类、插入顺序和设定内容的条目。</string>
     <string name="entry_index">条目 %d</string>
@@ -490,6 +495,15 @@
     <string name="prompt_post_processing_single_user_desc">把所有消息转为 user，补充发言者名称后合并为一条消息。</string>
     <string name="prompt_example_behavior_title">示例对话策略</string>
     <string name="prompt_example_behavior_desc">选择真实历史或角色卡示例优先使用剩余上下文预算。</string>
+    <string name="world_info_budget_section">世界书预算</string>
+    <string name="world_info_budget_description">先按上下文百分比计算世界书预算，再在上限大于 0 时应用 Token 上限。</string>
+    <string name="world_info_context_percent">上下文比例</string>
+    <string name="world_info_context_percent_helper">扣除回复预留后输入预算的 0–100%；先于 Token 上限计算</string>
+    <string name="world_info_budget_cap">预算上限</string>
+    <string name="world_info_budget_cap_helper">应用上下文百分比后世界书可使用的最大 Token 数；0 表示不设上限</string>
+    <string name="world_info_overflow_alert">预算耗尽时提醒</string>
+    <string name="world_info_overflow_alert_desc">已触发条目无法装入世界书预算时显示提示。</string>
+    <string name="world_info_budget_overflow_warning">部分已触发的世界书条目因世界书预算不足而未加入上下文。</string>
     <string name="prompt_example_behavior_normal">优先历史</string>
     <string name="prompt_example_behavior_pinned">固定示例</string>
     <string name="prompt_example_behavior_disabled">禁用</string>

@@ -13,7 +13,8 @@ data class WorldBookEditForm(
     val name: String = "",
     val description: String = "",
     val scanDepth: Int = 2,
-    val tokenBudget: Int = 25,
+    val tokenBudgetMode: WorldBookBudgetMode = WorldBookBudgetMode.FollowGlobal,
+    val tokenBudgetInput: String = "",
     val recursiveScanning: Boolean = false,
     val extensionsJson: String = "{}",
     val entries: List<WorldBookEntryListItem> = emptyList()
@@ -21,6 +22,14 @@ data class WorldBookEditForm(
     /** id 为 0 表示尚未持久化的新世界书。 */
     val isNew: Boolean
         get() = id == 0L
+
+    /** 解析后的单本固定 Token 上限；固定模式输入无效时返回 null。 */
+    val resolvedTokenBudget: Int?
+        get() = when (tokenBudgetMode) {
+            WorldBookBudgetMode.FollowGlobal -> 0
+            WorldBookBudgetMode.FixedTokens -> tokenBudgetInput.toIntOrNull()
+                ?.takeIf { it > 0 }
+        }
 
     companion object {
         /** 从世界书实体及其条目构造可编辑表单。 */
@@ -30,7 +39,15 @@ data class WorldBookEditForm(
                 name = lorebook.name,
                 description = lorebook.description,
                 scanDepth = lorebook.scanDepth,
-                tokenBudget = lorebook.tokenBudget,
+                tokenBudgetMode = if (lorebook.tokenBudget > 0) {
+                    WorldBookBudgetMode.FixedTokens
+                } else {
+                    WorldBookBudgetMode.FollowGlobal
+                },
+                tokenBudgetInput = lorebook.tokenBudget
+                    .takeIf { it > 0 }
+                    ?.toString()
+                    .orEmpty(),
                 recursiveScanning = lorebook.recursiveScanning,
                 extensionsJson = lorebook.extensionsJson,
                 entries = entries.map { WorldBookEntryListItem.from(it) }
@@ -40,6 +57,9 @@ data class WorldBookEditForm(
 
     /** 将表单转换为可保存实体，并规范化名称首尾空白。 */
     fun toLorebook(): Lorebook {
+        val tokenBudget = requireNotNull(resolvedTokenBudget) {
+            "A fixed lorebook token budget must be a positive integer."
+        }
         return Lorebook(
             id = id,
             name = name.trim(),
@@ -50,6 +70,12 @@ data class WorldBookEditForm(
             extensionsJson = extensionsJson
         )
     }
+}
+
+/** 单本世界书预算的编辑模式。 */
+enum class WorldBookBudgetMode {
+    FollowGlobal,
+    FixedTokens
 }
 
 /** 世界书编辑页中的条目摘要。 */
@@ -78,7 +104,13 @@ data class WorldBookEntryListItem(
 /** 生成用于脏数据比较的规范化表单。 */
 fun WorldBookEditForm.toComparableForm(): WorldBookEditForm {
     return copy(
-        name = name.trim()
+        name = name.trim(),
+        tokenBudgetInput = when (tokenBudgetMode) {
+            WorldBookBudgetMode.FollowGlobal -> ""
+            WorldBookBudgetMode.FixedTokens -> resolvedTokenBudget
+                ?.toString()
+                ?: tokenBudgetInput.trim()
+        }
     )
 }
 

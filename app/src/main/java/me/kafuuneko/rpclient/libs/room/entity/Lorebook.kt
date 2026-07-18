@@ -6,7 +6,8 @@ import androidx.room.PrimaryKey
 /**
  * 世界书级配置。
  *
- * [scanDepth]、[tokenBudget] 和 [recursiveScanning] 为条目默认行为；
+ * [scanDepth]、[tokenBudget] 和 [recursiveScanning] 为条目默认行为；[tokenBudget] 是固定
+ * Token 上限，为 0 时跟随全局世界书预算，不对本书增加额外限制。
  * [extensionsJson] 保留当前应用尚未识别的导入字段。
  */
 @Entity(
@@ -17,7 +18,7 @@ data class Lorebook(
     val name: String,
     val description: String = "",
     val scanDepth: Int = 2,
-    val tokenBudget: Int = 25,
+    val tokenBudget: Int = 0,
     val recursiveScanning: Boolean = false,
     val extensionsJson: String = "{}"
 )

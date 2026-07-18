@@ -11,6 +11,26 @@ class CharacterCardMapperTest {
     private val mapper = CharacterCardMapper(gson)
 
     @Test
+    fun characterBookWithoutBudgetFollowsGlobal() {
+        val parsed = mapper.parseCharacter(
+            """
+            {
+              "spec": "chara_card_v2",
+              "data": {
+                "name": "Iris",
+                "character_book": {
+                  "name": "Iris Book",
+                  "entries": []
+                }
+              }
+            }
+            """.trimIndent()
+        )
+
+        assertEquals(0, parsed.embeddedLorebook?.lorebook?.tokenBudget)
+    }
+
+    @Test
     fun v2JsonImportsCharacterBookAndPreservesExtensions() {
         val json = """
             {
@@ -94,6 +114,7 @@ class CharacterCardMapperTest {
         assertEquals(LorebookEntry.ROLE_USER, entry.role)
         assertEquals(80, entry.probability)
         assertEquals(true, entry.useGroupScoring)
+        assertEquals(25, parsed.embeddedLorebook.lorebook.tokenBudget)
         assertEquals(true, JsonParser.parseString(parsed.character.extensionsJson).asJsonObject.has("third_party"))
         assertEquals(
             "Hide metadata",
@@ -121,6 +142,10 @@ class CharacterCardMapperTest {
                 .asString
         )
         assertEquals(true, data.getAsJsonObject("character_book").getAsJsonArray("entries").size() == 1)
+        assertEquals(
+            25,
+            data.getAsJsonObject("character_book").get("token_budget").asInt
+        )
         assertEquals(
             true,
             data.getAsJsonObject("character_book")

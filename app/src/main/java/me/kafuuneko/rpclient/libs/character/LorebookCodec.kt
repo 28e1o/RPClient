@@ -25,7 +25,7 @@ class LorebookCodec(
             name = name.ifBlank { "Imported World Book" },
             description = root.optString("description"),
             scanDepth = root.optInt("scanDepth", 2),
-            tokenBudget = root.optInt("tokenBudget", 25),
+            tokenBudget = root.optInt("tokenBudget", 0),
             recursiveScanning = root.optBoolean("recursiveScanning", false),
             extensionsJson = gson.toJson(root.optJsonObject("extensions") ?: JsonObject())
         )
@@ -46,7 +46,8 @@ class LorebookCodec(
         book.addProperty("name", lorebook.name)
         book.addProperty("description", lorebook.description)
         book.addProperty("scanDepth", lorebook.scanDepth)
-        book.addProperty("tokenBudget", lorebook.tokenBudget)
+        // 0 是本地“跟随全局”哨兵值，导出时省略以免第三方客户端将其解释成零预算。
+        if (lorebook.tokenBudget > 0) book.addProperty("tokenBudget", lorebook.tokenBudget)
         book.addProperty("recursiveScanning", lorebook.recursiveScanning)
         book.add("extensions", parseObjectOrEmpty(lorebook.extensionsJson))
         

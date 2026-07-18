@@ -294,6 +294,11 @@
     <string name="no_world_books">Keine Weltbücher</string>
     <string name="no_world_books_desc">Erstelle ein Weltbuch, um wiederverwendbare Lore-Einträge zu verwalten.</string>
     <string name="world_book_editor_subtitle">Metadaten des Weltbuchs und jeden in der lokalen Bibliothek gespeicherten Auslöser-Eintrag bearbeiten</string>
+    <string name="world_book_token_budget">Budget pro Weltbuch</string>
+    <string name="world_book_budget_follow_global">Global übernehmen</string>
+    <string name="world_book_budget_follow_global_helper">Verwendet das globale Weltinfo-Budget ohne zusätzliche Begrenzung für dieses Weltbuch</string>
+    <string name="world_book_budget_fixed_tokens">Feste Tokens</string>
+    <string name="world_book_budget_tokens_helper">Gib ein positives festes Token-Limit für dieses Weltbuch ein</string>
     <string name="no_world_book_entries">Keine Einträge</string>
     <string name="no_world_book_entries_desc">Füge Einträge für Schlüsselwörter, Kategorien, Einfügungsreihenfolge und Lore-Inhalte hinzu.</string>
     <string name="entry_index">Eintrag %d</string>
@@ -484,6 +489,15 @@
     <string name="prompt_example_behavior_disabled">Deaktiviert</string>
     <string name="prompt_include_think_context_title">Denkblöcke (Think) im Kontext einschließen</string>
     <string name="prompt_include_think_context_desc">Wenn deaktiviert, werden gespeicherte &lt;think&gt;...&lt;/think&gt; Blöcke aus zukünftigen Prompts entfernt.</string>
+    <string name="world_info_budget_section">Weltinfo-Budget</string>
+    <string name="world_info_budget_description">Der Kontextanteil wird zuerst berechnet und anschließend durch die Token-Obergrenze begrenzt, sofern diese größer als 0 ist.</string>
+    <string name="world_info_context_percent">Kontextanteil</string>
+    <string name="world_info_context_percent_helper">0–100 % des Eingabebudgets nach Reservierung der Antwort; wird vor der Token-Obergrenze berechnet</string>
+    <string name="world_info_budget_cap">Budgetobergrenze</string>
+    <string name="world_info_budget_cap_helper">Maximale Weltinfo-Tokens nach Anwendung des Kontextanteils; 0 deaktiviert die Obergrenze</string>
+    <string name="world_info_overflow_alert">Warnung bei Budgetüberschreitung</string>
+    <string name="world_info_overflow_alert_desc">Warnen, wenn aktivierte Weltinfo-Einträge wegen des Budgets ausgelassen werden</string>
+    <string name="world_info_budget_overflow_warning">Einige aktivierte Weltinfo-Einträge wurden wegen des Weltinfo-Budgets ausgelassen.</string>
     <string name="selected_count">%d ausgewählt</string>
     <string name="delete_selected_sessions_title">Ausgewählte Sitzungen löschen</string>
     <string name="delete_selected_sessions_message">Möchtest du %d ausgewählte Sitzungen und alle zugehörigen Nachrichten löschen? Dies kann nicht rückgängig gemacht werden.</string>

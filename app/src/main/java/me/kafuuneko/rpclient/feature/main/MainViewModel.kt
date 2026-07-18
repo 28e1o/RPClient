@@ -105,6 +105,9 @@ class MainViewModel : CoreViewModelWithEvent<MainUiIntent, MainUiState>(
                     ?: PromptPostProcessingMode.None,
                 exampleDialogueBehavior = readExampleDialogueBehavior(),
                 includeThinkInContext = AppModel.includeThinkInContext,
+                worldInfoBudgetPercent = AppModel.worldInfoBudgetPercent.coerceIn(0, 100),
+                worldInfoBudgetCap = AppModel.worldInfoBudgetCap.coerceAtLeast(0),
+                worldInfoOverflowAlert = AppModel.worldInfoOverflowAlert,
                 debugModeEnabled = AppModel.debugModeEnabled,
                 autoSummaryEnabled = AppModel.autoSummaryEnabled,
                 summaryTriggerMessageCount = AppModel.summaryTriggerMessageCount,
@@ -480,7 +483,7 @@ class MainViewModel : CoreViewModelWithEvent<MainUiIntent, MainUiState>(
 
     @UiIntentObserver(MainUiIntent.ChangeSummaryTriggerMessageCount::class)
     private fun onChangeSummaryTriggerMessageCount(intent: MainUiIntent.ChangeSummaryTriggerMessageCount) {
-        updateSummaryInt(intent.value, minimum = 1) {
+        updateSettingsInt(intent.value, minimum = 1) {
             AppModel.summaryTriggerMessageCount = it
             copy(summaryTriggerMessageCount = it)
         }
@@ -488,7 +491,7 @@ class MainViewModel : CoreViewModelWithEvent<MainUiIntent, MainUiState>(
 
     @UiIntentObserver(MainUiIntent.ChangeSummaryWordsLimit::class)
     private fun onChangeSummaryWordsLimit(intent: MainUiIntent.ChangeSummaryWordsLimit) {
-        updateSummaryInt(intent.value, minimum = 50) {
+        updateSettingsInt(intent.value, minimum = 50) {
             AppModel.summaryWordsLimit = it
             copy(summaryWordsLimit = it)
         }
@@ -496,7 +499,7 @@ class MainViewModel : CoreViewModelWithEvent<MainUiIntent, MainUiState>(
 
     @UiIntentObserver(MainUiIntent.ChangeSummaryMaxMessagesPerRequest::class)
     private fun onChangeSummaryMaxMessagesPerRequest(intent: MainUiIntent.ChangeSummaryMaxMessagesPerRequest) {
-        updateSummaryInt(intent.value, minimum = 0) {
+        updateSettingsInt(intent.value, minimum = 0) {
             AppModel.summaryMaxMessagesPerRequest = it
             copy(summaryMaxMessagesPerRequest = it)
         }
@@ -504,7 +507,7 @@ class MainViewModel : CoreViewModelWithEvent<MainUiIntent, MainUiState>(
 
     @UiIntentObserver(MainUiIntent.ChangeSummaryResponseTokens::class)
     private fun onChangeSummaryResponseTokens(intent: MainUiIntent.ChangeSummaryResponseTokens) {
-        updateSummaryInt(intent.value, minimum = 128) {
+        updateSettingsInt(intent.value, minimum = 128) {
             AppModel.summaryResponseTokens = it
             copy(summaryResponseTokens = it)
         }
@@ -525,7 +528,7 @@ class MainViewModel : CoreViewModelWithEvent<MainUiIntent, MainUiState>(
 
     @UiIntentObserver(MainUiIntent.ChangeSummaryInjectionDepth::class)
     private fun onChangeSummaryInjectionDepth(intent: MainUiIntent.ChangeSummaryInjectionDepth) {
-        updateSummaryInt(intent.value, minimum = 0) {
+        updateSettingsInt(intent.value, minimum = 0) {
             AppModel.summaryInjectionDepth = it
             copy(summaryInjectionDepth = it)
         }
@@ -573,6 +576,35 @@ class MainViewModel : CoreViewModelWithEvent<MainUiIntent, MainUiState>(
         AppModel.includeThinkInContext = intent.enabled
         uiState.copy(
             settingsState = uiState.settingsState.copy(includeThinkInContext = intent.enabled)
+        ).setup()
+    }
+
+    @UiIntentObserver(MainUiIntent.ChangeWorldInfoBudgetPercent::class)
+    private fun onChangeWorldInfoBudgetPercent(intent: MainUiIntent.ChangeWorldInfoBudgetPercent) {
+        val uiState = getOrNull<MainUiState.Normal>() ?: return
+        val percent = intent.value.coerceIn(0, 100)
+        AppModel.worldInfoBudgetPercent = percent
+        uiState.copy(
+            settingsState = uiState.settingsState.copy(worldInfoBudgetPercent = percent)
+        ).setup()
+    }
+
+    @UiIntentObserver(MainUiIntent.ChangeWorldInfoBudgetCap::class)
+    private fun onChangeWorldInfoBudgetCap(intent: MainUiIntent.ChangeWorldInfoBudgetCap) {
+        updateSettingsInt(intent.value, minimum = 0) {
+            AppModel.worldInfoBudgetCap = it
+            copy(worldInfoBudgetCap = it)
+        }
+    }
+
+    @UiIntentObserver(MainUiIntent.ToggleWorldInfoOverflowAlert::class)
+    private fun onToggleWorldInfoOverflowAlert(intent: MainUiIntent.ToggleWorldInfoOverflowAlert) {
+        val uiState = getOrNull<MainUiState.Normal>() ?: return
+        AppModel.worldInfoOverflowAlert = intent.enabled
+        uiState.copy(
+            settingsState = uiState.settingsState.copy(
+                worldInfoOverflowAlert = intent.enabled
+            )
         ).setup()
     }
 
@@ -657,6 +689,9 @@ class MainViewModel : CoreViewModelWithEvent<MainUiIntent, MainUiState>(
                 ?: PromptPostProcessingMode.None,
             exampleDialogueBehavior = readExampleDialogueBehavior(),
             includeThinkInContext = AppModel.includeThinkInContext,
+            worldInfoBudgetPercent = AppModel.worldInfoBudgetPercent.coerceIn(0, 100),
+            worldInfoBudgetCap = AppModel.worldInfoBudgetCap.coerceAtLeast(0),
+            worldInfoOverflowAlert = AppModel.worldInfoOverflowAlert,
             debugModeEnabled = AppModel.debugModeEnabled,
             autoSummaryEnabled = AppModel.autoSummaryEnabled,
             summaryTriggerMessageCount = AppModel.summaryTriggerMessageCount,
@@ -700,7 +735,7 @@ class MainViewModel : CoreViewModelWithEvent<MainUiIntent, MainUiState>(
             .takeIf { it.isNotBlank() }
             ?.let { withContext(Dispatchers.IO) { mFileRepository.loadBitmap(it)?.asImageBitmap() } }
 
-    private fun updateSummaryInt(
+    private fun updateSettingsInt(
         value: String,
         minimum: Int,
         update: MainSettingsState.(Int) -> MainSettingsState

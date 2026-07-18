@@ -12,7 +12,7 @@ data class PromptFinalizationResult(
 )
 
 /**
- * 核心不可丢弃内容本身已超过输入预算。
+ * 不可丢弃的 Prompt 内容本身已超过输入预算。
  *
  * 此时继续静默裁剪会破坏角色设定，因此终止构建并由界面提示用户调整上下文。
  */
@@ -21,7 +21,7 @@ class PromptBudgetExceededException(
     val promptBudget: Int
 ) : IllegalStateException(
     "Prompt requires $requiredTokens tokens, but only $promptBudget input tokens are available. " +
-        "Shorten the core prompt or increase the context limit."
+        "Shorten required prompt content or ignored-budget World Info, or increase the context limit."
 )
 
 /**

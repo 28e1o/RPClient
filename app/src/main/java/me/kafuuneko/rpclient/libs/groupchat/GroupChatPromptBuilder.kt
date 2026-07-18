@@ -29,6 +29,7 @@ import me.kafuuneko.rpclient.libs.prompt.filterForExampleBehavior
 import me.kafuuneko.rpclient.libs.prompt.mapEntryContent
 import me.kafuuneko.rpclient.libs.prompt.parseExampleMessages
 import me.kafuuneko.rpclient.libs.prompt.retainStateEntries
+import me.kafuuneko.rpclient.libs.prompt.resolveWorldInfoBudget
 import me.kafuuneko.rpclient.libs.regex.RegexExecutionError
 import me.kafuuneko.rpclient.libs.regex.RegexExecutionHit
 import me.kafuuneko.rpclient.libs.regex.RegexExecutionMode
@@ -105,8 +106,11 @@ class GroupChatPromptBuilder(
         val maxPromptTokens = (
             context.provider.contextTokens - context.provider.maxTokens
         ).coerceAtLeast(0)
-        val worldBudget =
-            maxPromptTokens * readWorldInfoBudgetPercent().coerceIn(0, 40) / 100
+        val worldBudget = resolveWorldInfoBudget(
+            promptTokenBudget = maxPromptTokens,
+            contextPercent = readWorldInfoBudgetPercent(),
+            tokenBudgetCap = readWorldInfoBudgetCap()
+        )
         val regexHits = mutableListOf<RegexExecutionHit>()
         val regexErrors = mutableListOf<RegexExecutionError>()
         val regexMacros = RegexScriptRuntime.macros(
@@ -134,7 +138,6 @@ class GroupChatPromptBuilder(
         val worldSelection = fitWorldInfoToBudget(
             result = activatedWorldInfo,
             globalTokenBudget = worldBudget,
-            promptTokenBudget = maxPromptTokens,
             lorebooks = context.candidateLorebooks,
             tokenizer = mRequestFinalizer.tokenizerFor(context.provider)
         )
@@ -306,10 +309,9 @@ class GroupChatPromptBuilder(
             summaryDraft(context)?.let { before += it }
         }
         worldInfo.beforeCharacter.forEach {
-            before += optionalSystem(
+            before += prioritizedWorldInfo(
                 formatWorldInfo(it.content),
-                PromptSource(PromptSourceKind.WorldInfo, it.name, it.id),
-                PRIORITY_WORLD_INFO
+                PromptSource(PromptSourceKind.WorldInfo, it.name, it.id)
             )
         }
         context.session.userDescription.takeIf { it.isNotBlank() }?.let {
@@ -324,10 +326,9 @@ class GroupChatPromptBuilder(
             )
         }
         worldInfo.afterCharacter.forEach {
-            before += optionalSystem(
+            before += prioritizedWorldInfo(
                 formatWorldInfo(it.content),
-                PromptSource(PromptSourceKind.WorldInfo, it.name, it.id),
-                PRIORITY_WORLD_INFO
+                PromptSource(PromptSourceKind.WorldInfo, it.name, it.id)
             )
         }
         val examplePriority = exampleBehavior
@@ -511,10 +512,9 @@ class GroupChatPromptBuilder(
         }
         worldInfo.anTop.forEachIndexed { index, entry ->
             pieces += InChatPiece(
-                message = optionalSystem(
+                message = prioritizedWorldInfo(
                     entry.content,
-                    PromptSource(PromptSourceKind.WorldInfo, entry.name, entry.id),
-                    PRIORITY_WORLD_INFO
+                    PromptSource(PromptSourceKind.WorldInfo, entry.name, entry.id)
                 ),
                 depth = USER_NOTE_DEPTH,
                 order = AN_TOP_ORDER,
@@ -535,10 +535,9 @@ class GroupChatPromptBuilder(
         }
         worldInfo.anBottom.forEachIndexed { index, entry ->
             pieces += InChatPiece(
-                message = optionalSystem(
+                message = prioritizedWorldInfo(
                     entry.content,
-                    PromptSource(PromptSourceKind.WorldInfo, entry.name, entry.id),
-                    PRIORITY_WORLD_INFO
+                    PromptSource(PromptSourceKind.WorldInfo, entry.name, entry.id)
                 ),
                 depth = USER_NOTE_DEPTH,
                 order = AN_BOTTOM_ORDER,
@@ -577,8 +576,8 @@ class GroupChatPromptBuilder(
                     role = group.role,
                     content = group.entries.joinToString("\n") { it.content },
                     source = sources.first(),
-                    retentionPriority = PRIORITY_WORLD_INFO,
-                    canDrop = true,
+                    retentionPriority = PRIORITY_ESSENTIAL,
+                    canDrop = false,
                     sources = sources
                 ),
                 group.depth,
@@ -777,6 +776,10 @@ class GroupChatPromptBuilder(
     private fun readWorldInfoBudgetPercent(): Int =
         runCatching { AppModel.worldInfoBudgetPercent }.getOrDefault(25)
 
+    private fun readWorldInfoBudgetCap(): Int =
+        runCatching { AppModel.worldInfoBudgetCap }
+            .getOrDefault(0)
+
     private fun readIncludeThinkInContext(): Boolean =
         runCatching { AppModel.includeThinkInContext }.getOrDefault(false)
 
@@ -885,6 +888,20 @@ class GroupChatPromptBuilder(
         )
     }
 
+    /** 预算内世界书优先于聊天历史保留，极端超限时仍允许最终安全裁剪。 */
+    private fun prioritizedWorldInfo(
+        content: String,
+        source: PromptSource
+    ): PromptMessageDraft {
+        return PromptMessageDraft(
+            role = LLMMessageRole.System,
+            content = content,
+            source = source,
+            retentionPriority = PRIORITY_ESSENTIAL,
+            canDrop = false
+        )
+    }
+
     private fun optionalSystem(
         content: String,
         source: PromptSource,
@@ -914,7 +931,6 @@ class GroupChatPromptBuilder(
     private companion object {
         const val PRIORITY_AUXILIARY = 20
         const val PRIORITY_NEW_CHAT = 30
-        const val PRIORITY_WORLD_INFO = 40
         const val PRIORITY_USER_NOTE = 300
         const val PRIORITY_CHARACTER_NOTE = 310
         const val PRIORITY_ESSENTIAL = 1_000

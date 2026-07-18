@@ -1,5 +1,7 @@
 package me.kafuuneko.rpclient.feature.worldbookedit.presentation
 
+import me.kafuuneko.rpclient.feature.worldbookedit.model.WorldBookBudgetMode
+
 /** 世界书元数据编辑页的用户意图。 */
 sealed class WorldBookEditUiIntent {
     data class Init(val lorebookId: Long?) : WorldBookEditUiIntent()
@@ -9,6 +11,10 @@ sealed class WorldBookEditUiIntent {
     data object Back : WorldBookEditUiIntent()
 
     data class ChangeName(val value: String) : WorldBookEditUiIntent()
+
+    data class SelectTokenBudgetMode(val mode: WorldBookBudgetMode) : WorldBookEditUiIntent()
+
+    data class ChangeTokenBudgetTokens(val value: String) : WorldBookEditUiIntent()
 
     data object AddEntry : WorldBookEditUiIntent()
 

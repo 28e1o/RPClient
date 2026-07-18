@@ -10,6 +10,30 @@ internal data class WorldInfoSelection(
 )
 
 /**
+ * 按 SillyTavern 的规则计算本轮世界书预算。
+ *
+ * 先按扣除回复预留后的输入预算计算百分比，再应用可选的固定 Token 上限；上限为 0
+ * 时不限制。百分比结果按四舍五入计算，并至少保留 1 Token。
+ */
+internal fun resolveWorldInfoBudget(
+    promptTokenBudget: Int,
+    contextPercent: Int,
+    tokenBudgetCap: Int
+): Int {
+    val normalizedPromptBudget = promptTokenBudget.coerceAtLeast(0)
+    val normalizedPercent = contextPercent.coerceIn(0, 100)
+    val percentageBudget = (
+        (normalizedPromptBudget.toLong() * normalizedPercent + 50L) / 100L
+        ).coerceAtMost(Int.MAX_VALUE.toLong()).toInt().coerceAtLeast(1)
+    val normalizedCap = tokenBudgetCap.coerceAtLeast(0)
+    return if (normalizedCap > 0 && percentageBudget > normalizedCap) {
+        normalizedCap
+    } else {
+        percentageBudget
+    }
+}
+
+/**
  * 同时应用全局世界书预算与每本世界书的独立预算。
  *
  * 常驻和高顺序条目优先选择；[LorebookEntry.ignoreBudget] 只跳过预算占用，
@@ -18,7 +42,6 @@ internal data class WorldInfoSelection(
 internal fun fitWorldInfoToBudget(
     result: WorldBookActivationResult,
     globalTokenBudget: Int,
-    promptTokenBudget: Int,
     lorebooks: Map<Long, Lorebook>,
     tokenizer: PromptTokenizer
 ): WorldInfoSelection {
@@ -36,9 +59,10 @@ internal fun fitWorldInfoToBudget(
         .forEach { entry ->
             val nextTokens = tokenizer.countText(entry.content)
             val lorebookBudget = lorebooks[entry.lorebookId]
-                ?.resolveTokenBudget(promptTokenBudget)
+                ?.resolveTokenBudget()
             val lorebookUsedTokens = usedByLorebook[entry.lorebookId] ?: 0
-            val exceedsGlobalBudget = globalUsedTokens + nextTokens > globalTokenBudget
+            // SillyTavern stops before an entry that would meet or exceed the global budget.
+            val exceedsGlobalBudget = globalUsedTokens + nextTokens >= globalTokenBudget
             val exceedsLorebookBudget = lorebookBudget != null &&
                 lorebookUsedTokens + nextTokens > lorebookBudget
 
@@ -69,14 +93,10 @@ internal fun fitWorldInfoToBudget(
     )
 }
 
-private fun Lorebook.resolveTokenBudget(promptTokenBudget: Int): Int {
-    if (tokenBudget <= 0) return 0
-    // 兼容项目既有 25% 默认值；大于 100 的 Character Book 预算按绝对 Token 上限处理。
-    return if (tokenBudget <= 100) {
-        promptTokenBudget * tokenBudget / 100
-    } else {
-        tokenBudget
-    }
+private fun Lorebook.resolveTokenBudget(): Int? {
+    // 0 表示跟随全局预算，不对这本世界书增加第二层限制。
+    if (tokenBudget <= 0) return null
+    return tokenBudget
 }
 
 /**

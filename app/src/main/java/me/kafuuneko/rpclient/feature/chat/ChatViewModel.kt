@@ -43,6 +43,7 @@ import me.kafuuneko.rpclient.libs.prompt.ChatPromptBuilder
 import me.kafuuneko.rpclient.libs.prompt.PromptBuildContext
 import me.kafuuneko.rpclient.libs.prompt.PromptGenerationMode
 import me.kafuuneko.rpclient.libs.prompt.PromptInspection
+import me.kafuuneko.rpclient.libs.prompt.PromptOmissionReason
 import me.kafuuneko.rpclient.libs.prompt.SummaryPromptBuilder
 import me.kafuuneko.rpclient.libs.prompt.summarySafeContent
 import me.kafuuneko.rpclient.libs.regex.RegexExecutionMode
@@ -1178,8 +1179,21 @@ class ChatViewModel : CoreViewModelWithEvent<ChatUiIntent, ChatUiState>(
         mLastPromptInspection = inspection
         val uiState = getOrNull<ChatUiState.Normal>() ?: return
         uiState.copy(hasPromptInspection = true).setup()
-        if (inspection.hasOmissions) {
-            AppViewEvent.PopupToastMessageByResId(R.string.prompt_trimmed_warning).tryEmit()
+        val hasWorldInfoOverflow = inspection.omittedItems.any {
+            it.reason == PromptOmissionReason.WorldInfoBudget
+        }
+        val hasContextTrimming = inspection.omittedItems.any {
+            it.reason == PromptOmissionReason.ContextBudget
+        }
+        when {
+            AppModel.worldInfoOverflowAlert && hasWorldInfoOverflow -> {
+                AppViewEvent.PopupToastMessageByResId(
+                    R.string.world_info_budget_overflow_warning
+                ).tryEmit()
+            }
+            hasContextTrimming -> {
+                AppViewEvent.PopupToastMessageByResId(R.string.prompt_trimmed_warning).tryEmit()
+            }
         }
     }
 
