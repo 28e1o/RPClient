@@ -311,7 +311,8 @@ class GroupChatPromptBuilder(
         worldInfo.beforeCharacter.forEach {
             before += prioritizedWorldInfo(
                 formatWorldInfo(it.content),
-                PromptSource(PromptSourceKind.WorldInfo, it.name, it.id)
+                PromptSource(PromptSourceKind.WorldInfo, it.name, it.id),
+                canDrop = !it.ignoreBudget
             )
         }
         context.session.userDescription.takeIf { it.isNotBlank() }?.let {
@@ -328,7 +329,8 @@ class GroupChatPromptBuilder(
         worldInfo.afterCharacter.forEach {
             before += prioritizedWorldInfo(
                 formatWorldInfo(it.content),
-                PromptSource(PromptSourceKind.WorldInfo, it.name, it.id)
+                PromptSource(PromptSourceKind.WorldInfo, it.name, it.id),
+                canDrop = !it.ignoreBudget
             )
         }
         val examplePriority = exampleBehavior
@@ -514,7 +516,8 @@ class GroupChatPromptBuilder(
             pieces += InChatPiece(
                 message = prioritizedWorldInfo(
                     entry.content,
-                    PromptSource(PromptSourceKind.WorldInfo, entry.name, entry.id)
+                    PromptSource(PromptSourceKind.WorldInfo, entry.name, entry.id),
+                    canDrop = !entry.ignoreBudget
                 ),
                 depth = USER_NOTE_DEPTH,
                 order = AN_TOP_ORDER,
@@ -537,7 +540,8 @@ class GroupChatPromptBuilder(
             pieces += InChatPiece(
                 message = prioritizedWorldInfo(
                     entry.content,
-                    PromptSource(PromptSourceKind.WorldInfo, entry.name, entry.id)
+                    PromptSource(PromptSourceKind.WorldInfo, entry.name, entry.id),
+                    canDrop = !entry.ignoreBudget
                 ),
                 depth = USER_NOTE_DEPTH,
                 order = AN_BOTTOM_ORDER,
@@ -577,7 +581,7 @@ class GroupChatPromptBuilder(
                     content = group.entries.joinToString("\n") { it.content },
                     source = sources.first(),
                     retentionPriority = PRIORITY_ESSENTIAL,
-                    canDrop = false,
+                    canDrop = group.entries.none { it.ignoreBudget },
                     sources = sources
                 ),
                 group.depth,
@@ -891,14 +895,15 @@ class GroupChatPromptBuilder(
     /** 预算内世界书优先于聊天历史保留，极端超限时仍允许最终安全裁剪。 */
     private fun prioritizedWorldInfo(
         content: String,
-        source: PromptSource
+        source: PromptSource,
+        canDrop: Boolean
     ): PromptMessageDraft {
         return PromptMessageDraft(
             role = LLMMessageRole.System,
             content = content,
             source = source,
             retentionPriority = PRIORITY_ESSENTIAL,
-            canDrop = false
+            canDrop = canDrop
         )
     }
 

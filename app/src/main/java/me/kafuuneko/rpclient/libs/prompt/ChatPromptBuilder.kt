@@ -241,7 +241,7 @@ class ChatPromptBuilder(
                 content = formatWorldInfo(it.content),
                 source = PromptSource(PromptSourceKind.WorldInfo, it.name, it.id),
                 retentionPriority = PRIORITY_ESSENTIAL,
-                canDrop = false
+                canDrop = !it.ignoreBudget
             )
         }
         beforeHistory += PromptPiece.required(
@@ -277,7 +277,7 @@ class ChatPromptBuilder(
                 content = formatWorldInfo(it.content),
                 source = PromptSource(PromptSourceKind.WorldInfo, it.name, it.id),
                 retentionPriority = PRIORITY_ESSENTIAL,
-                canDrop = false
+                canDrop = !it.ignoreBudget
             )
         }
 
@@ -325,7 +325,7 @@ class ChatPromptBuilder(
                 content = entry.content,
                 source = PromptSource(PromptSourceKind.WorldInfo, entry.name, entry.id),
                 retentionPriority = PRIORITY_ESSENTIAL,
-                canDrop = false,
+                canDrop = !entry.ignoreBudget,
                 depth = USER_NOTE_DEPTH,
                 order = AN_TOP_ORDER,
                 tieBreaker = index.toLong()
@@ -349,7 +349,7 @@ class ChatPromptBuilder(
                 content = entry.content,
                 source = PromptSource(PromptSourceKind.WorldInfo, entry.name, entry.id),
                 retentionPriority = PRIORITY_ESSENTIAL,
-                canDrop = false,
+                canDrop = !entry.ignoreBudget,
                 depth = USER_NOTE_DEPTH,
                 order = AN_BOTTOM_ORDER,
                 tieBreaker = index.toLong()
@@ -380,7 +380,7 @@ class ChatPromptBuilder(
                 content = group.entries.joinToString("\n") { it.content },
                 source = sources.first(),
                 retentionPriority = PRIORITY_ESSENTIAL,
-                canDrop = false,
+                canDrop = group.entries.none { it.ignoreBudget },
                 depth = group.depth.coerceAtLeast(0),
                 order = first.order,
                 tieBreaker = first.id,

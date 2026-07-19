@@ -444,6 +444,57 @@ class GroupChatPromptBuilderTest {
     }
 
     @Test
+    fun regularGroupWorldInfoCanBeDroppedWhenRequiredPromptStillOverflows() {
+        val lyra = character(1, "Lyra").copy(
+            description = "d".repeat(40)
+        )
+        val worldContent = "WORLD_" + "w".repeat(54)
+        val tokenizer = object : PromptTokenizer {
+            override val name = "Character count"
+            override val strategy = PromptTokenizerStrategy.ModelAware
+            override fun countText(text: String): Int = text.length
+        }
+        val result = GroupChatPromptBuilder(
+            mRequestFinalizer = PromptRequestFinalizer { tokenizer }
+        ).buildWithMetadata(
+            GroupChatPromptContext(
+                session = GroupChatSession(
+                    id = 1,
+                    title = "Crew",
+                    createTime = 1,
+                    latestTime = 1,
+                    userName = "Alex",
+                    userDescription = "",
+                    systemPromptOverride = "R"
+                ),
+                members = listOf(member(lyra, 0)),
+                speaker = lyra,
+                messages = listOf(
+                    message(GroupChatMessage.Source.User, "Alex", "LATEST")
+                ),
+                provider = provider(contextTokens = 310, maxTokens = 50),
+                candidateLorebookEntries = listOf(
+                    worldEntry(
+                        id = 95L,
+                        order = 100,
+                        content = worldContent,
+                        position = LorebookEntry.POSITION_BEFORE
+                    )
+                )
+            )
+        )
+
+        assertTrue(result.request.messages.any { it.content.contains("LATEST") })
+        assertFalse(result.request.messages.any { it.content.contains(worldContent) })
+        assertTrue(
+            result.inspection.omittedItems.any {
+                it.source.referenceId == 95L &&
+                    it.reason == PromptOmissionReason.ContextBudget
+            }
+        )
+    }
+
+    @Test
     fun oversizedIgnoredBudgetGroupWorldInfoIsNotSilentlyTrimmed() {
         val lyra = character(1, "Lyra")
         val worldContent = "OVERSIZED_WORLD_" + "w".repeat(800)

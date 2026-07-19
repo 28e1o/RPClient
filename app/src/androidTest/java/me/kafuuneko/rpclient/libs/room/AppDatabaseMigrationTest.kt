@@ -51,6 +51,16 @@ class AppDatabaseMigrationTest {
             )
             execSQL(
                 """
+                INSERT INTO lorebooks (
+                    id, name, description, scanDepth, tokenBudget,
+                    recursiveScanning, extensionsJson
+                ) VALUES
+                    (501, 'legacy-default', '', 2, 25, 0, '{}'),
+                    (502, 'explicit-budget', '', 2, 256, 0, '{}')
+                """.trimIndent()
+            )
+            execSQL(
+                """
                 INSERT INTO llm_request_logs (
                     id, createTime, providerName, providerType, protocol, model, isStreaming,
                     requestJson, responseJson
@@ -88,6 +98,16 @@ class AppDatabaseMigrationTest {
         ).use { cursor ->
             assertEquals(true, cursor.moveToFirst())
             assertEquals(15, cursor.getInt(0))
+        }
+        migrated.query(
+            "SELECT id, tokenBudget FROM lorebooks ORDER BY id"
+        ).use { cursor ->
+            assertEquals(true, cursor.moveToFirst())
+            assertEquals(501L, cursor.getLong(0))
+            assertEquals(0, cursor.getInt(1))
+            assertEquals(true, cursor.moveToNext())
+            assertEquals(502L, cursor.getLong(0))
+            assertEquals(256, cursor.getInt(1))
         }
     }
 

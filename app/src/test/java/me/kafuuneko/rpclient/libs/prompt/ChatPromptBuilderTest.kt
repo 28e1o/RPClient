@@ -741,6 +741,42 @@ class ChatPromptBuilderTest {
     }
 
     @Test
+    fun regularWorldInfoCanBeDroppedAfterHistoryWhenRequiredPromptStillOverflows() {
+        val worldContent = "WORLD_" + "w".repeat(19)
+        val result = builder(ExampleDialogueBehavior.Normal).buildWithMetadata(
+            context(
+                character = context().character.copy(
+                    description = "d".repeat(80),
+                    systemPrompt = "R"
+                ),
+                messages = listOf(
+                    chatMessage(1L, ChatMessage.Source.User, "L")
+                ),
+                entries = listOf(
+                    lorebookEntry(
+                        id = 32L,
+                        order = 100,
+                        depth = 0,
+                        content = worldContent,
+                        position = LorebookEntry.POSITION_BEFORE
+                    )
+                ),
+                maxContextTokens = 170,
+                maxResponseTokens = 50
+            )
+        )
+
+        assertTrue(result.request.messages.any { it.content == "L" })
+        assertFalse(result.request.messages.any { it.content.contains(worldContent) })
+        assertTrue(
+            result.inspection.omittedItems.any {
+                it.source.referenceId == 32L &&
+                    it.reason == PromptOmissionReason.ContextBudget
+            }
+        )
+    }
+
+    @Test
     fun oversizedIgnoredBudgetWorldInfoIsNotSilentlyTrimmed() {
         val worldContent = "OVERSIZED_WORLD_" + "w".repeat(400)
         assertThrows(PromptBudgetExceededException::class.java) {
