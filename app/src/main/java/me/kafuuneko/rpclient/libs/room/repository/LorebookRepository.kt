@@ -6,6 +6,7 @@ import androidx.room.withTransaction
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import me.kafuuneko.rpclient.libs.character.CharacterBookImport
 import me.kafuuneko.rpclient.libs.character.LorebookCodec
 import me.kafuuneko.rpclient.libs.room.AppDatabase
 import me.kafuuneko.rpclient.libs.room.entity.Lorebook
@@ -221,19 +222,29 @@ class LorebookRepository(
         return true
     }
 
-    /**
-     * 导入世界书条目
-     */
-    suspend fun importFromUri(uri: Uri): Long = withContext(Dispatchers.IO) {
+    /** 从用户选择的文档读取并解析世界书，但不写入数据库。 */
+    suspend fun readImportFromUri(uri: Uri): CharacterBookImport = withContext(Dispatchers.IO) {
         val bytes = mContext.contentResolver.openInputStream(uri)?.use { it.readBytes() }
             ?: error("Cannot read world book file")
         val json = bytes.toString(Charsets.UTF_8)
         val codec = LorebookCodec(mGson)
-        val parsed = codec.parseLorebook(json)
+        codec.parseLorebook(json)
+    }
 
-        val bookId = saveLorebook(parsed.lorebook)
-        parsed.entries.forEach { entry -> saveEntry(entry.copy(lorebookId = bookId)) }
-        bookId
+    /** 将已解析的世界书及其条目作为一个事务写入数据库。 */
+    suspend fun saveImport(parsed: CharacterBookImport): Long = withContext(Dispatchers.IO) {
+        mAppDatabase.withTransaction {
+            val bookId = mLorebookDao.insertOrReplace(parsed.lorebook)
+            mLorebookEntryDao.insertOrReplaceAll(
+                parsed.entries.map { entry -> entry.copy(lorebookId = bookId) }
+            )
+            bookId
+        }
+    }
+
+    /** 读取并导入世界书；无需在写入前检查解析结果时使用。 */
+    suspend fun importFromUri(uri: Uri): Long = withContext(Dispatchers.IO) {
+        saveImport(readImportFromUri(uri))
     }
 
     /** 导出指定世界书及其条目为 SillyTavern 兼容 JSON。 */

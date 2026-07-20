@@ -123,6 +123,11 @@
     <string name="export_world_book">Weltbuch exportieren</string>
     <string name="import_world_book_success">Weltbuch importiert</string>
     <string name="import_world_book_failed">Import des Weltbuchs fehlgeschlagen</string>
+    <string name="low_world_book_budget_title">Weltbuch-Budget möglicherweise zu niedrig</string>
+    <string name="low_world_book_budget_message">Dieses Weltbuch verwendet ein festes Budget von %1$d Token, das möglicherweise zu niedrig ist. Soll stattdessen das globale Budget verwendet werden?</string>
+    <string name="low_embedded_world_book_budget_message">Das in diesem Charakter enthaltene Weltbuch verwendet ein festes Budget von %1$d Token, das möglicherweise zu niedrig ist. Soll stattdessen das globale Budget verwendet werden?</string>
+    <string name="follow_global_budget">Globalem Budget folgen</string>
+    <string name="keep_imported_budget">Importiertes Budget beibehalten</string>
     <string name="export_world_book_success">Weltbuch exportiert</string>
     <string name="export_world_book_failed">Export des Weltbuchs fehlgeschlagen</string>
     <string name="associated_world_book">Verknüpftes Weltbuch</string>

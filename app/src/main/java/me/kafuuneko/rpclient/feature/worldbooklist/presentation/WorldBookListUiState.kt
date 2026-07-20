@@ -8,7 +8,8 @@ sealed class WorldBookListUiState {
 
     data class Normal(
         val loadState: WorldBookListLoadState = WorldBookListLoadState.None,
-        val lorebooks: List<WorldBookListItem> = emptyList()
+        val lorebooks: List<WorldBookListItem> = emptyList(),
+        val dialogState: WorldBookListDialogState = WorldBookListDialogState.None
     ) : WorldBookListUiState()
 
     data class Finished(val previous: WorldBookListUiState) : WorldBookListUiState()
@@ -19,6 +20,15 @@ sealed class WorldBookListUiState {
             return Finished(previous)
         }
     }
+}
+
+/** 世界书列表页对话框状态。 */
+sealed class WorldBookListDialogState {
+    data object None : WorldBookListDialogState()
+
+    data class LowTokenBudgetConfirm(
+        val importedTokenBudget: Int
+    ) : WorldBookListDialogState()
 }
 
 /** 世界书列表读取或导入期间的加载状态。 */

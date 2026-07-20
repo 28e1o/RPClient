@@ -12,12 +12,15 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.kafuuneko.rpclient.R
 import me.kafuuneko.rpclient.feature.characterlist.model.CharacterListItem
+import me.kafuuneko.rpclient.feature.characterlist.presentation.CharacterListDialogState
 import me.kafuuneko.rpclient.feature.characterlist.presentation.CharacterListLoadState
 import me.kafuuneko.rpclient.feature.characterlist.presentation.CharacterListUiIntent
 import me.kafuuneko.rpclient.feature.characterlist.presentation.CharacterListUiState
 import me.kafuuneko.rpclient.feature.characterlist.presentation.CharacterListViewEvent
 import me.kafuuneko.rpclient.feature.characteredit.CharacterEditActivity
 import me.kafuuneko.rpclient.libs.character.CharacterCardRepository
+import me.kafuuneko.rpclient.libs.character.CharacterCardImportDraft
+import me.kafuuneko.rpclient.libs.character.LorebookImportPolicy
 import me.kafuuneko.rpclient.libs.core.AppViewEvent
 import me.kafuuneko.rpclient.libs.core.CoreViewModelWithEvent
 import me.kafuuneko.rpclient.libs.core.UiIntentObserver
@@ -47,6 +50,7 @@ class CharacterListViewModel : CoreViewModelWithEvent<CharacterListUiIntent, Cha
     private val mAvatarLoadKeys = mutableMapOf<Long, AvatarCacheKey>()
     private val mVisibleAvatars = mutableMapOf<Long, LoadedAvatar>()
     private val mAvatarCache = AvatarBitmapCache(MAX_AVATAR_CACHE_BYTES)
+    private var mPendingImport: CharacterCardImportDraft? = null
 
     @UiIntentObserver(CharacterListUiIntent.Init::class)
     private suspend fun onInit() {
@@ -68,6 +72,7 @@ class CharacterListViewModel : CoreViewModelWithEvent<CharacterListUiIntent, Cha
         if (isStateOf<CharacterListUiState.Finished>()) return
         mRefreshGeneration++
         mTransferJob?.cancel()
+        mPendingImport = null
         cancelAvatarLoads()
         CharacterListUiState.finished(uiStateFlow.value).setup()
     }
@@ -128,7 +133,8 @@ class CharacterListViewModel : CoreViewModelWithEvent<CharacterListUiIntent, Cha
 
     @UiIntentObserver(CharacterListUiIntent.ImportCharacterClick::class)
     private fun onImportCharacterClick() {
-        if (!isStateOf<CharacterListUiState.Normal>()) return
+        val uiState = getOrNull<CharacterListUiState.Normal>() ?: return
+        if (uiState.dialogState != CharacterListDialogState.None) return
         CharacterListViewEvent.OpenCharacterCardImporter.tryEmit()
     }
 
@@ -141,11 +147,22 @@ class CharacterListViewModel : CoreViewModelWithEvent<CharacterListUiIntent, Cha
         uiState.copy(loadState = CharacterListLoadState.Loading).setup()
         mTransferJob = viewModelScope.launch {
             try {
-                val importedId = withContext(Dispatchers.IO) {
-                    mCharacterCardRepository.importFromUri(intent.uri)
+                val draft = withContext(Dispatchers.IO) {
+                    mCharacterCardRepository.readImportFromUri(intent.uri)
                 }
-                AppViewEvent.PopupToastMessageByResId(R.string.import_character_success).tryEmit()
-                refreshCharacters(selectedCharacterId = importedId)
+                if (LorebookImportPolicy.requiresLowBudgetConfirmation(draft.card)) {
+                    mPendingImport = draft
+                    getOrNull<CharacterListUiState.Normal>()?.copy(
+                        loadState = CharacterListLoadState.None,
+                        dialogState = CharacterListDialogState.LowEmbeddedLorebookBudgetConfirm(
+                            importedTokenBudget = requireNotNull(
+                                draft.card.embeddedLorebook
+                            ).lorebook.tokenBudget
+                        )
+                    )?.setup()
+                } else {
+                    saveImport(draft)
+                }
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (_: Exception) {
@@ -155,6 +172,53 @@ class CharacterListViewModel : CoreViewModelWithEvent<CharacterListUiIntent, Cha
                 finishTransfer(token)
             }
         }
+    }
+
+    @UiIntentObserver(CharacterListUiIntent.ImportCharacterWithGlobalLorebookBudget::class)
+    private fun onImportCharacterWithGlobalLorebookBudget() {
+        continuePendingImport(followGlobal = true)
+    }
+
+    @UiIntentObserver(CharacterListUiIntent.ImportCharacterWithOriginalLorebookBudget::class)
+    private fun onImportCharacterWithOriginalLorebookBudget() {
+        continuePendingImport(followGlobal = false)
+    }
+
+    private fun continuePendingImport(followGlobal: Boolean) {
+        val uiState = getOrNull<CharacterListUiState.Normal>() ?: return
+        if (uiState.dialogState !is CharacterListDialogState.LowEmbeddedLorebookBudgetConfirm) return
+        val draft = mPendingImport ?: return
+        mPendingImport = null
+        val token = Any()
+        mTransferToken = token
+        uiState.copy(
+            loadState = CharacterListLoadState.Loading,
+            dialogState = CharacterListDialogState.None
+        ).setup()
+        mTransferJob = viewModelScope.launch {
+            try {
+                saveImport(
+                    draft.copy(
+                        card = LorebookImportPolicy.resolveBudget(draft.card, followGlobal)
+                    )
+                )
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                AppViewEvent.PopupToastMessageByResId(R.string.import_character_failed).tryEmit()
+                refreshCharacters(selectedCharacterId = uiState.selectedCharacterId)
+            } finally {
+                finishTransfer(token)
+            }
+        }
+    }
+
+    private suspend fun saveImport(draft: CharacterCardImportDraft) {
+        val importedId = withContext(Dispatchers.IO) {
+            mCharacterCardRepository.saveImport(draft)
+        }
+        AppViewEvent.PopupToastMessageByResId(R.string.import_character_success).tryEmit()
+        refreshCharacters(selectedCharacterId = importedId)
     }
 
     @UiIntentObserver(CharacterListUiIntent.ExportCharacterJsonClick::class)

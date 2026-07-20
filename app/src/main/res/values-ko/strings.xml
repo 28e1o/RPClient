@@ -122,6 +122,11 @@
     <string name="export_world_book">월드북 내보내기</string>
     <string name="import_world_book_success">월드북을 가져왔습니다</string>
     <string name="import_world_book_failed">월드북 가져오기 실패</string>
+    <string name="low_world_book_budget_title">월드북 예산이 너무 적을 수 있음</string>
+    <string name="low_world_book_budget_message">이 월드북의 고정 예산은 %1$d토큰으로, 너무 적을 수 있습니다. 전역 예산을 따르도록 변경할까요?</string>
+    <string name="low_embedded_world_book_budget_message">이 캐릭터에 포함된 월드북의 고정 예산은 %1$d토큰으로, 너무 적을 수 있습니다. 전역 예산을 따르도록 변경할까요?</string>
+    <string name="follow_global_budget">전역 예산 따르기</string>
+    <string name="keep_imported_budget">가져온 예산 유지</string>
     <string name="export_world_book_success">월드북을 내보냈습니다</string>
     <string name="export_world_book_failed">월드북 내보내기 실패</string>
     <string name="associated_world_book">연동된 월드북</string>

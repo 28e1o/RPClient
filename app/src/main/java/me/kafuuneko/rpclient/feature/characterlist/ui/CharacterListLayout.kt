@@ -26,6 +26,7 @@ import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -35,6 +36,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.snapshotFlow
@@ -52,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.distinctUntilChanged
 import me.kafuuneko.rpclient.R
 import me.kafuuneko.rpclient.feature.characterlist.model.CharacterListItem
+import me.kafuuneko.rpclient.feature.characterlist.presentation.CharacterListDialogState
 import me.kafuuneko.rpclient.feature.characterlist.presentation.CharacterListLoadState
 import me.kafuuneko.rpclient.feature.characterlist.presentation.CharacterListUiIntent
 import me.kafuuneko.rpclient.feature.characterlist.presentation.CharacterListUiState
@@ -154,6 +157,49 @@ private fun CharacterListNormal(
                 )
             }
         }
+    }
+    DialogSwitch(state.dialogState, emit)
+}
+
+@Composable
+private fun DialogSwitch(
+    dialogState: CharacterListDialogState,
+    emit: CharacterListUiIntent.() -> Unit
+) {
+    when (dialogState) {
+        CharacterListDialogState.None -> Unit
+        is CharacterListDialogState.LowEmbeddedLorebookBudgetConfirm -> AlertDialog(
+            onDismissRequest = {
+                CharacterListUiIntent.ImportCharacterWithOriginalLorebookBudget.emit()
+            },
+            title = { Text(stringResource(R.string.low_world_book_budget_title)) },
+            text = {
+                Text(
+                    stringResource(
+                        R.string.low_embedded_world_book_budget_message,
+                        dialogState.importedTokenBudget
+                    )
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        CharacterListUiIntent.ImportCharacterWithGlobalLorebookBudget.emit()
+                    }
+                ) {
+                    Text(stringResource(R.string.follow_global_budget))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        CharacterListUiIntent.ImportCharacterWithOriginalLorebookBudget.emit()
+                    }
+                ) {
+                    Text(stringResource(R.string.keep_imported_budget))
+                }
+            }
+        )
     }
 }
 

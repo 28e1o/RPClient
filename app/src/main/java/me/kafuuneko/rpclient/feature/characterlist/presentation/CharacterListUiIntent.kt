@@ -25,6 +25,10 @@ sealed class CharacterListUiIntent {
 
     data class ImportCharacterCard(val uri: Uri) : CharacterListUiIntent()
 
+    data object ImportCharacterWithGlobalLorebookBudget : CharacterListUiIntent()
+
+    data object ImportCharacterWithOriginalLorebookBudget : CharacterListUiIntent()
+
     data class ExportCharacterJsonClick(val characterId: Long) : CharacterListUiIntent()
 
     data class ExportCharacterJson(val characterId: Long, val uri: Uri) : CharacterListUiIntent()

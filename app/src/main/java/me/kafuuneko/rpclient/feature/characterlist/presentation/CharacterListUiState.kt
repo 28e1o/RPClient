@@ -10,7 +10,8 @@ sealed class CharacterListUiState {
         val loadState: CharacterListLoadState = CharacterListLoadState.None,
         val searchText: String = "",
         val selectedCharacterId: Long? = null,
-        val characters: List<CharacterListItem> = emptyList()
+        val characters: List<CharacterListItem> = emptyList(),
+        val dialogState: CharacterListDialogState = CharacterListDialogState.None
     ) : CharacterListUiState()
 
     data class Finished(val previous: CharacterListUiState) : CharacterListUiState()
@@ -21,6 +22,15 @@ sealed class CharacterListUiState {
             return Finished(previous)
         }
     }
+}
+
+/** 角色列表页对话框状态。 */
+sealed class CharacterListDialogState {
+    data object None : CharacterListDialogState()
+
+    data class LowEmbeddedLorebookBudgetConfirm(
+        val importedTokenBudget: Int
+    ) : CharacterListDialogState()
 }
 
 /** 角色列表读取或导入期间的阻塞状态。 */

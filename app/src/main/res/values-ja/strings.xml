@@ -123,6 +123,11 @@
     <string name="export_world_book">ワールドブックをエクスポート</string>
     <string name="import_world_book_success">ワールドブックをインポートしました</string>
     <string name="import_world_book_failed">ワールドブックのインポートに失敗しました</string>
+    <string name="low_world_book_budget_title">ワールドブックの予算が少なすぎる可能性があります</string>
+    <string name="low_world_book_budget_message">このワールドブックの固定予算は%1$dトークンで、少なすぎる可能性があります。グローバル予算に従うよう変更しますか？</string>
+    <string name="low_embedded_world_book_budget_message">このキャラクターに含まれるワールドブックの固定予算は%1$dトークンで、少なすぎる可能性があります。グローバル予算に従うよう変更しますか？</string>
+    <string name="follow_global_budget">グローバル予算に従う</string>
+    <string name="keep_imported_budget">インポートした予算を維持</string>
     <string name="export_world_book_success">ワールドブックをエクスポートしました</string>
     <string name="export_world_book_failed">ワールドブックのエクスポートに失敗しました</string>
     <string name="associated_world_book">関連付けられたワールドブック</string>

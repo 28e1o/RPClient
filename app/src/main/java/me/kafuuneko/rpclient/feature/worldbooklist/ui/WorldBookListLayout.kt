@@ -24,6 +24,7 @@ import androidx.compose.material.icons.rounded.Book
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FileUpload
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -31,6 +32,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,6 +42,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import me.kafuuneko.rpclient.R
 import me.kafuuneko.rpclient.feature.worldbooklist.model.WorldBookListItem
+import me.kafuuneko.rpclient.feature.worldbooklist.presentation.WorldBookListDialogState
 import me.kafuuneko.rpclient.feature.worldbooklist.presentation.WorldBookListLoadState
 import me.kafuuneko.rpclient.feature.worldbooklist.presentation.WorldBookListUiIntent
 import me.kafuuneko.rpclient.feature.worldbooklist.presentation.WorldBookListUiState
@@ -125,6 +128,39 @@ private fun WorldBookListNormal(
                 )
             }
         }
+    }
+    DialogSwitch(state.dialogState, emit)
+}
+
+@Composable
+private fun DialogSwitch(
+    dialogState: WorldBookListDialogState,
+    emit: WorldBookListUiIntent.() -> Unit
+) {
+    when (dialogState) {
+        WorldBookListDialogState.None -> Unit
+        is WorldBookListDialogState.LowTokenBudgetConfirm -> AlertDialog(
+            onDismissRequest = { WorldBookListUiIntent.ImportWithOriginalBudget.emit() },
+            title = { Text(stringResource(R.string.low_world_book_budget_title)) },
+            text = {
+                Text(
+                    stringResource(
+                        R.string.low_world_book_budget_message,
+                        dialogState.importedTokenBudget
+                    )
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { WorldBookListUiIntent.ImportWithGlobalBudget.emit() }) {
+                    Text(stringResource(R.string.follow_global_budget))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { WorldBookListUiIntent.ImportWithOriginalBudget.emit() }) {
+                    Text(stringResource(R.string.keep_imported_budget))
+                }
+            }
+        )
     }
 }
 

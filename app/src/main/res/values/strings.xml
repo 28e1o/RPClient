@@ -122,6 +122,11 @@
     <string name="export_world_book">Export world book</string>
     <string name="import_world_book_success">World book imported</string>
     <string name="import_world_book_failed">Failed to import world book</string>
+    <string name="low_world_book_budget_title">Low world book budget</string>
+    <string name="low_world_book_budget_message">This world book uses a fixed budget of %1$d tokens, which may be too small. Change it to follow the global budget?</string>
+    <string name="low_embedded_world_book_budget_message">This character contains a world book with a fixed budget of %1$d tokens, which may be too small. Change it to follow the global budget?</string>
+    <string name="follow_global_budget">Follow global</string>
+    <string name="keep_imported_budget">Keep imported budget</string>
     <string name="export_world_book_success">World book exported</string>
     <string name="export_world_book_failed">Failed to export world book</string>
     <string name="associated_world_book">Associated World Book</string>

@@ -10,6 +10,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.kafuuneko.rpclient.feature.worldbookedit.WorldBookEditActivity
 import me.kafuuneko.rpclient.feature.worldbooklist.model.WorldBookListItem
+import me.kafuuneko.rpclient.feature.worldbooklist.presentation.WorldBookListDialogState
 import me.kafuuneko.rpclient.feature.worldbooklist.presentation.WorldBookListLoadState
 import me.kafuuneko.rpclient.feature.worldbooklist.presentation.WorldBookListUiIntent
 import me.kafuuneko.rpclient.feature.worldbooklist.presentation.WorldBookListUiState
@@ -17,6 +18,8 @@ import me.kafuuneko.rpclient.feature.worldbooklist.presentation.WorldBookListVie
 import me.kafuuneko.rpclient.libs.core.AppViewEvent
 import me.kafuuneko.rpclient.libs.core.CoreViewModelWithEvent
 import me.kafuuneko.rpclient.libs.core.UiIntentObserver
+import me.kafuuneko.rpclient.libs.character.CharacterBookImport
+import me.kafuuneko.rpclient.libs.character.LorebookImportPolicy
 import me.kafuuneko.rpclient.libs.room.repository.LorebookRepository
 import me.kafuuneko.rpclient.R
 import org.koin.core.component.KoinComponent
@@ -30,6 +33,7 @@ class WorldBookListViewModel : CoreViewModelWithEvent<WorldBookListUiIntent, Wor
     private var mTransferJob: Job? = null
     private var mTransferToken: Any? = null
     private var mRefreshGeneration: Long = 0L
+    private var mPendingImport: CharacterBookImport? = null
 
     @UiIntentObserver(WorldBookListUiIntent.Init::class)
     private suspend fun onInit() {
@@ -51,6 +55,7 @@ class WorldBookListViewModel : CoreViewModelWithEvent<WorldBookListUiIntent, Wor
         if (isStateOf<WorldBookListUiState.Finished>()) return
         mRefreshGeneration++
         mTransferJob?.cancel()
+        mPendingImport = null
         WorldBookListUiState.finished(uiStateFlow.value).setup()
     }
 
@@ -93,7 +98,8 @@ class WorldBookListViewModel : CoreViewModelWithEvent<WorldBookListUiIntent, Wor
 
     @UiIntentObserver(WorldBookListUiIntent.ImportWorldBookClick::class)
     private fun onImportWorldBookClick() {
-        if (!isStateOf<WorldBookListUiState.Normal>()) return
+        val uiState = getOrNull<WorldBookListUiState.Normal>() ?: return
+        if (uiState.dialogState != WorldBookListDialogState.None) return
         WorldBookListViewEvent.OpenWorldBookImporter.tryEmit()
     }
 
@@ -106,9 +112,20 @@ class WorldBookListViewModel : CoreViewModelWithEvent<WorldBookListUiIntent, Wor
         uiState.copy(loadState = WorldBookListLoadState.Loading).setup()
         mTransferJob = viewModelScope.launch {
             try {
-                withContext(Dispatchers.IO) { mLorebookRepository.importFromUri(intent.uri) }
-                AppViewEvent.PopupToastMessageByResId(R.string.import_world_book_success).tryEmit()
-                refreshLorebooks()
+                val parsed = withContext(Dispatchers.IO) {
+                    mLorebookRepository.readImportFromUri(intent.uri)
+                }
+                if (LorebookImportPolicy.requiresLowBudgetConfirmation(parsed)) {
+                    mPendingImport = parsed
+                    getOrNull<WorldBookListUiState.Normal>()?.copy(
+                        loadState = WorldBookListLoadState.None,
+                        dialogState = WorldBookListDialogState.LowTokenBudgetConfirm(
+                            importedTokenBudget = parsed.lorebook.tokenBudget
+                        )
+                    )?.setup()
+                } else {
+                    saveImport(parsed)
+                }
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (_: Exception) {
@@ -118,6 +135,47 @@ class WorldBookListViewModel : CoreViewModelWithEvent<WorldBookListUiIntent, Wor
                 finishTransfer(token)
             }
         }
+    }
+
+    @UiIntentObserver(WorldBookListUiIntent.ImportWithGlobalBudget::class)
+    private fun onImportWithGlobalBudget() {
+        continuePendingImport(followGlobal = true)
+    }
+
+    @UiIntentObserver(WorldBookListUiIntent.ImportWithOriginalBudget::class)
+    private fun onImportWithOriginalBudget() {
+        continuePendingImport(followGlobal = false)
+    }
+
+    private fun continuePendingImport(followGlobal: Boolean) {
+        val uiState = getOrNull<WorldBookListUiState.Normal>() ?: return
+        if (uiState.dialogState !is WorldBookListDialogState.LowTokenBudgetConfirm) return
+        val parsed = mPendingImport ?: return
+        mPendingImport = null
+        val token = Any()
+        mTransferToken = token
+        uiState.copy(
+            loadState = WorldBookListLoadState.Loading,
+            dialogState = WorldBookListDialogState.None
+        ).setup()
+        mTransferJob = viewModelScope.launch {
+            try {
+                saveImport(LorebookImportPolicy.resolveBudget(parsed, followGlobal))
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                AppViewEvent.PopupToastMessageByResId(R.string.import_world_book_failed).tryEmit()
+                refreshLorebooks()
+            } finally {
+                finishTransfer(token)
+            }
+        }
+    }
+
+    private suspend fun saveImport(parsed: CharacterBookImport) {
+        withContext(Dispatchers.IO) { mLorebookRepository.saveImport(parsed) }
+        AppViewEvent.PopupToastMessageByResId(R.string.import_world_book_success).tryEmit()
+        refreshLorebooks()
     }
 
     @UiIntentObserver(WorldBookListUiIntent.ExportWorldBookClick::class)

@@ -122,6 +122,11 @@
     <string name="export_world_book">Exporter le livre d\'univers</string>
     <string name="import_world_book_success">Livre d\'univers importé</string>
     <string name="import_world_book_failed">Échec de l\'importation du livre d\'univers</string>
+    <string name="low_world_book_budget_title">Budget du livre d\'univers potentiellement insuffisant</string>
+    <string name="low_world_book_budget_message">Ce livre d\'univers utilise un budget fixe de %1$d jetons, qui pourrait être insuffisant. Utiliser plutôt le budget global ?</string>
+    <string name="low_embedded_world_book_budget_message">Le livre d\'univers intégré à ce personnage utilise un budget fixe de %1$d jetons, qui pourrait être insuffisant. Utiliser plutôt le budget global ?</string>
+    <string name="follow_global_budget">Suivre le budget global</string>
+    <string name="keep_imported_budget">Conserver le budget importé</string>
     <string name="export_world_book_success">Livre d\'univers exporté</string>
     <string name="export_world_book_failed">Échec de l\'exportation du livre d\'univers</string>
     <string name="associated_world_book">Livre d\'univers associé</string>

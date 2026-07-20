@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import me.kafuuneko.rpclient.libs.room.entity.Character
 import me.kafuuneko.rpclient.libs.room.repository.CharacterRepository
@@ -28,35 +29,70 @@ class CharacterCardRepository(
     /** 无状态格式映射器，在 Repository 生命周期内复用。 */
     private val mapper = CharacterCardMapper(mGson)
 
-    /**
-     * 从 URI 导入 JSON 或 PNG 角色卡并返回新角色 ID。
-     *
-     * 嵌入世界书必须先落库，生成的 ID 随后写入角色，保持引用有效。
-     */
-    suspend fun importFromUri(uri: Uri): Long = withContext(Dispatchers.IO) {
+    /** 从 URI 读取并解析 JSON 或 PNG 角色卡，但不保存头像或业务实体。 */
+    suspend fun readImportFromUri(uri: Uri): CharacterCardImportDraft = withContext(Dispatchers.IO) {
         val bytes = mContext.contentResolver.openInputStream(uri)?.use { it.readBytes() }
             ?: error("Cannot read character card")
         val mime = mContext.contentResolver.getType(uri).orEmpty()
+        val isPng = CharacterCardPngCodec.isPng(bytes)
         val json = when {
-            CharacterCardPngCodec.isPng(bytes) -> CharacterCardPngCodec.readCharacterJson(bytes)
+            isPng -> CharacterCardPngCodec.readCharacterJson(bytes)
             else -> bytes.toString(Charsets.UTF_8)
         }
-        val avatar = if (CharacterCardPngCodec.isPng(bytes) || mime.startsWith("image/")) {
-            mFileRepository.saveFile(uri, mime.ifBlank { "image/png" })
-        } else {
-            ""
-        }
-        val parsed = mapper.parseCharacter(json, avatar = avatar)
-        val lorebookId = parsed.embeddedLorebook?.let { book ->
-            val bookId = mLorebookRepository.saveLorebook(book.lorebook.copy(
-                name = book.lorebook.name.ifBlank { "${parsed.character.name}'s Lorebook" }
-            ))
-            book.entries.forEach { entry ->
-                mLorebookRepository.saveEntry(entry.copy(lorebookId = bookId))
+        CharacterCardImportDraft(
+            card = mapper.parseCharacter(json),
+            avatarSourceUri = uri.takeIf { isPng || mime.startsWith("image/") },
+            avatarMimeType = mime.ifBlank { "image/png" }
+        )
+    }
+
+    /**
+     * 保存已解析的角色卡，并返回新角色 ID。
+     *
+     * 头像与内嵌世界书先保存以建立有效引用；后续步骤失败时会清理本次新增资源。
+     */
+    suspend fun saveImport(draft: CharacterCardImportDraft): Long = withContext(Dispatchers.IO) {
+        var avatar = ""
+        var lorebookId = 0L
+        try {
+            avatar = draft.avatarSourceUri?.let { uri ->
+                mFileRepository.saveFile(uri, draft.avatarMimeType)
+            }.orEmpty()
+            val parsed = draft.card
+            lorebookId = parsed.embeddedLorebook?.let { book ->
+                mLorebookRepository.saveImport(
+                    book.copy(
+                        lorebook = book.lorebook.copy(
+                            name = book.lorebook.name.ifBlank {
+                                "${parsed.character.name}'s Lorebook"
+                            }
+                        )
+                    )
+                )
+            } ?: 0L
+            mCharacterRepository.saveCharacter(
+                parsed.character.copy(
+                    avatar = avatar,
+                    characterLorebookId = lorebookId
+                )
+            )
+        } catch (error: Exception) {
+            // 导入任务可能已被取消；补偿清理必须脱离已取消的 Job 才能执行挂起操作。
+            withContext(NonCancellable) {
+                if (lorebookId != 0L) {
+                    runCatching { mLorebookRepository.deleteLorebook(lorebookId) }
+                }
+                if (avatar.isNotBlank()) {
+                    runCatching { mFileRepository.deleteFile(avatar) }
+                }
             }
-            bookId
-        } ?: 0L
-        mCharacterRepository.saveCharacter(parsed.character.copy(characterLorebookId = lorebookId))
+            throw error
+        }
+    }
+
+    /** 读取并导入角色卡；无需在写入前检查解析结果时使用。 */
+    suspend fun importFromUri(uri: Uri): Long = withContext(Dispatchers.IO) {
+        saveImport(readImportFromUri(uri))
     }
 
     /** 导出 Character Card V2 JSON，并在角色已绑定世界书时一并嵌入。 */
@@ -120,3 +156,10 @@ class CharacterCardRepository(
         )
     }
 }
+
+/** 从文件解析出的、尚未持久化的角色卡及头像来源。 */
+data class CharacterCardImportDraft(
+    val card: CharacterCardImport,
+    val avatarSourceUri: Uri?,
+    val avatarMimeType: String
+)

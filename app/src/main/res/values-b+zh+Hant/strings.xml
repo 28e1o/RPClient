@@ -121,6 +121,11 @@
     <string name="export_world_book">匯出世界書</string>
     <string name="import_world_book_success">世界書已匯入</string>
     <string name="import_world_book_failed">匯入世界書失敗</string>
+    <string name="low_world_book_budget_title">世界書預算可能過低</string>
+    <string name="low_world_book_budget_message">該世界書的固定預算為 %1$d Token，可能不足。是否改為跟隨全域預算？</string>
+    <string name="low_embedded_world_book_budget_message">該角色包含的世界書固定預算為 %1$d Token，可能不足。是否改為跟隨全域預算？</string>
+    <string name="follow_global_budget">跟隨全域</string>
+    <string name="keep_imported_budget">保留匯入預算</string>
     <string name="export_world_book_success">世界書已匯出</string>
     <string name="export_world_book_failed">匯出世界書失敗</string>
     <string name="associated_world_book">關聯世界書</string>
