@@ -496,6 +496,8 @@
     <string name="world_info_budget_cap_helper">컨텍스트 비율 적용 후 월드 정보가 사용할 수 있는 최대 토큰 수; 0이면 상한 없음</string>
     <string name="world_info_overflow_alert">예산 초과 알림</string>
     <string name="world_info_overflow_alert_desc">활성화된 월드 정보 항목이 예산 때문에 제외되면 알립니다</string>
+    <string name="context_trimming_alert">컨텍스트 잘림 알림</string>
+    <string name="context_trimming_alert_desc">컨텍스트 제한에 맞추기 위해 이전 메시지나 선택적 프롬프트 항목이 제거되면 알립니다</string>
     <string name="world_info_budget_overflow_warning">활성화된 일부 월드 정보 항목이 예산 부족으로 제외되었습니다.</string>
     <string name="selected_count">%d개 선택됨</string>
     <string name="delete_selected_sessions_title">선택한 세션 삭제</string>

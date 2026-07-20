@@ -504,6 +504,8 @@
     <string name="world_info_budget_cap_helper">Maximum World Info tokens after applying the context percentage; 0 disables the cap</string>
     <string name="world_info_overflow_alert">Alert when budget is exhausted</string>
     <string name="world_info_overflow_alert_desc">Show a notice when activated entries cannot fit the World Info budget.</string>
+    <string name="context_trimming_alert">Context trimming notices</string>
+    <string name="context_trimming_alert_desc">Show a notice when older messages or optional Prompt sections are removed to fit the context.</string>
     <string name="world_info_budget_overflow_warning">Some activated World Info entries were omitted by the World Info budget.</string>
     <string name="prompt_example_behavior_normal">Prefer history</string>
     <string name="prompt_example_behavior_pinned">Pin examples</string>

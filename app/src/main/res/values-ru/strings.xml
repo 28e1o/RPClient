@@ -496,6 +496,8 @@
     <string name="world_info_budget_cap_helper">Максимум токенов информации мира после применения процента контекста; 0 отключает ограничение</string>
     <string name="world_info_overflow_alert">Предупреждение о превышении бюджета</string>
     <string name="world_info_overflow_alert_desc">Предупреждать, если активированные записи пропущены из-за бюджета</string>
+    <string name="context_trimming_alert">Уведомления об обрезке контекста</string>
+    <string name="context_trimming_alert_desc">Показывать уведомление, когда старые сообщения или необязательные части промпта удаляются из-за лимита контекста</string>
     <string name="world_info_budget_overflow_warning">Некоторые активированные записи информации мира пропущены из-за бюджета.</string>
     <string name="selected_count">Выбрано: %d</string>
     <string name="delete_selected_sessions_title">Удалить выбранные сессии</string>

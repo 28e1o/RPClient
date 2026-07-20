@@ -496,6 +496,8 @@
     <string name="world_info_budget_cap_helper">Nombre maximal de jetons d\'informations du monde après application du pourcentage ; 0 désactive le plafond</string>
     <string name="world_info_overflow_alert">Alerte de dépassement du budget</string>
     <string name="world_info_overflow_alert_desc">Avertir lorsque des entrées activées sont ignorées à cause du budget</string>
+    <string name="context_trimming_alert">Alertes de réduction du contexte</string>
+    <string name="context_trimming_alert_desc">Avertir lorsque des messages anciens ou des sections facultatives du prompt sont supprimés pour respecter la limite de contexte</string>
     <string name="world_info_budget_overflow_warning">Certaines entrées activées ont été ignorées à cause du budget des informations du monde.</string>
     <string name="selected_count">%d sélectionnés</string>
     <string name="delete_selected_sessions_title">Supprimer les sessions sélectionnées</string>

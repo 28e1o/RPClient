@@ -497,6 +497,8 @@
     <string name="world_info_budget_cap_helper">コンテキスト割合を適用した後のワールド情報トークン上限。0 で上限なし</string>
     <string name="world_info_overflow_alert">予算超過を通知</string>
     <string name="world_info_overflow_alert_desc">有効化されたワールド情報が予算不足で省略されたときに通知します</string>
+    <string name="context_trimming_alert">コンテキスト切り詰め通知</string>
+    <string name="context_trimming_alert_desc">コンテキスト上限に合わせて古いメッセージや任意のプロンプト項目が削除されたときに通知します</string>
     <string name="world_info_budget_overflow_warning">有効化されたワールド情報の一部が予算不足のため省略されました。</string>
     <string name="selected_count">%d 件選択</string>
     <string name="delete_selected_sessions_title">選択したセッションを削除</string>

@@ -188,7 +188,10 @@ Rules:
     var worldInfoBudgetCap by intPref(default = 0)
 
     // 世界书候选条目因独立预算未进入 Prompt 时是否提示用户。
-    var worldInfoOverflowAlert by booleanPref(default = false)
+    var worldInfoOverflowAlert by booleanPref(default = true)
+
+    // Prompt 内容因上下文预算被正常裁剪时是否提示用户。
+    var contextTrimmingAlert by booleanPref(default = false)
 
     // 示例对话的全局保留策略，使用 ExampleDialogueBehavior.persistedValue 持久化。
     var exampleDialogueBehavior by intPref(default = ExampleDialogueBehavior.default.persistedValue)

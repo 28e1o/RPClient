@@ -81,6 +81,7 @@ data class MainSettingsState(
     val worldInfoBudgetPercent: Int,
     val worldInfoBudgetCap: Int,
     val worldInfoOverflowAlert: Boolean,
+    val contextTrimmingAlert: Boolean,
     val debugModeEnabled: Boolean,
     val autoSummaryEnabled: Boolean,
     val summaryTriggerMessageCount: Int,

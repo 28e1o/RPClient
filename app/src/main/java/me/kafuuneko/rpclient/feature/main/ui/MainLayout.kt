@@ -1046,6 +1046,13 @@ private fun PromptBehaviorPanel(
                 onCheckedChange = { MainUiIntent.ToggleIncludeThinkInContext(it).emit() }
             )
             SettingSwitchRow(
+                icon = Icons.Rounded.Info,
+                title = stringResource(R.string.context_trimming_alert),
+                subtitle = stringResource(R.string.context_trimming_alert_desc),
+                checked = state.contextTrimmingAlert,
+                onCheckedChange = { MainUiIntent.ToggleContextTrimmingAlert(it).emit() }
+            )
+            SettingSwitchRow(
                 Icons.Rounded.Refresh,
                 stringResource(R.string.streaming_response),
                 stringResource(R.string.streaming_response_desc),
@@ -1637,6 +1644,7 @@ private fun MainLayoutPreview() {
                     worldInfoBudgetPercent = 25,
                     worldInfoBudgetCap = 0,
                     worldInfoOverflowAlert = true,
+                    contextTrimmingAlert = true,
                     debugModeEnabled = false,
                     autoSummaryEnabled = false,
                     summaryTriggerMessageCount = 20,

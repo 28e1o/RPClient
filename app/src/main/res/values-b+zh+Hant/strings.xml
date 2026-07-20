@@ -503,6 +503,8 @@
     <string name="world_info_budget_cap_helper">套用上下文百分比後世界資訊可使用的最大 Token 數；0 表示不設上限</string>
     <string name="world_info_overflow_alert">預算耗盡時提醒</string>
     <string name="world_info_overflow_alert_desc">已觸發條目無法放入世界資訊預算時顯示提示。</string>
+    <string name="context_trimming_alert">上下文裁剪提示</string>
+    <string name="context_trimming_alert_desc">為配合上下文限制而移除較早訊息或可選 Prompt 內容時顯示提示。</string>
     <string name="world_info_budget_overflow_warning">部分已觸發的世界資訊條目因世界資訊預算不足而未加入上下文。</string>
     <string name="prompt_example_behavior_normal">優先歷史</string>
     <string name="prompt_example_behavior_pinned">固定範例</string>

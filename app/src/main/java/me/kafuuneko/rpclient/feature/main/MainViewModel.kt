@@ -108,6 +108,7 @@ class MainViewModel : CoreViewModelWithEvent<MainUiIntent, MainUiState>(
                 worldInfoBudgetPercent = AppModel.worldInfoBudgetPercent.coerceIn(0, 100),
                 worldInfoBudgetCap = AppModel.worldInfoBudgetCap.coerceAtLeast(0),
                 worldInfoOverflowAlert = AppModel.worldInfoOverflowAlert,
+                contextTrimmingAlert = AppModel.contextTrimmingAlert,
                 debugModeEnabled = AppModel.debugModeEnabled,
                 autoSummaryEnabled = AppModel.autoSummaryEnabled,
                 summaryTriggerMessageCount = AppModel.summaryTriggerMessageCount,
@@ -608,6 +609,17 @@ class MainViewModel : CoreViewModelWithEvent<MainUiIntent, MainUiState>(
         ).setup()
     }
 
+    @UiIntentObserver(MainUiIntent.ToggleContextTrimmingAlert::class)
+    private fun onToggleContextTrimmingAlert(intent: MainUiIntent.ToggleContextTrimmingAlert) {
+        val uiState = getOrNull<MainUiState.Normal>() ?: return
+        AppModel.contextTrimmingAlert = intent.enabled
+        uiState.copy(
+            settingsState = uiState.settingsState.copy(
+                contextTrimmingAlert = intent.enabled
+            )
+        ).setup()
+    }
+
     @UiIntentObserver(MainUiIntent.SelectExampleDialogueBehavior::class)
     private fun onSelectExampleDialogueBehavior(
         intent: MainUiIntent.SelectExampleDialogueBehavior
@@ -692,6 +704,7 @@ class MainViewModel : CoreViewModelWithEvent<MainUiIntent, MainUiState>(
             worldInfoBudgetPercent = AppModel.worldInfoBudgetPercent.coerceIn(0, 100),
             worldInfoBudgetCap = AppModel.worldInfoBudgetCap.coerceAtLeast(0),
             worldInfoOverflowAlert = AppModel.worldInfoOverflowAlert,
+            contextTrimmingAlert = AppModel.contextTrimmingAlert,
             debugModeEnabled = AppModel.debugModeEnabled,
             autoSummaryEnabled = AppModel.autoSummaryEnabled,
             summaryTriggerMessageCount = AppModel.summaryTriggerMessageCount,

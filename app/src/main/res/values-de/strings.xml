@@ -497,6 +497,8 @@
     <string name="world_info_budget_cap_helper">Maximale Weltinfo-Tokens nach Anwendung des Kontextanteils; 0 deaktiviert die Obergrenze</string>
     <string name="world_info_overflow_alert">Warnung bei Budgetüberschreitung</string>
     <string name="world_info_overflow_alert_desc">Warnen, wenn aktivierte Weltinfo-Einträge wegen des Budgets ausgelassen werden</string>
+    <string name="context_trimming_alert">Hinweise zur Kontextkürzung</string>
+    <string name="context_trimming_alert_desc">Hinweis anzeigen, wenn ältere Nachrichten oder optionale Prompt-Abschnitte für das Kontextlimit entfernt werden</string>
     <string name="world_info_budget_overflow_warning">Einige aktivierte Weltinfo-Einträge wurden wegen des Weltinfo-Budgets ausgelassen.</string>
     <string name="selected_count">%d ausgewählt</string>
     <string name="delete_selected_sessions_title">Ausgewählte Sitzungen löschen</string>

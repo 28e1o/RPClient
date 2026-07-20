@@ -1191,7 +1191,7 @@ class ChatViewModel : CoreViewModelWithEvent<ChatUiIntent, ChatUiState>(
                     R.string.world_info_budget_overflow_warning
                 ).tryEmit()
             }
-            hasContextTrimming -> {
+            AppModel.contextTrimmingAlert && hasContextTrimming -> {
                 AppViewEvent.PopupToastMessageByResId(R.string.prompt_trimmed_warning).tryEmit()
             }
         }

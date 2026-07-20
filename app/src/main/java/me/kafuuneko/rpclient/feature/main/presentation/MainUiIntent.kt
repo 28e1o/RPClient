@@ -70,6 +70,8 @@ sealed class MainUiIntent {
 
     data class ToggleWorldInfoOverflowAlert(val enabled: Boolean) : MainUiIntent()
 
+    data class ToggleContextTrimmingAlert(val enabled: Boolean) : MainUiIntent()
+
     data class ToggleDebugModeEnabled(val enabled: Boolean) : MainUiIntent()
 
     data class ToggleAutoSummaryEnabled(val enabled: Boolean) : MainUiIntent()
