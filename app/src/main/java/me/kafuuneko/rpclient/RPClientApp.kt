@@ -1,11 +1,8 @@
 package me.kafuuneko.rpclient
 
 import android.app.Application
-import android.content.Context
-import android.content.res.Configuration
 import androidx.room.Room
 import com.chibatching.kotpref.Kotpref
-import java.util.Locale
 import com.google.gson.Gson
 import me.kafuuneko.rpclient.libs.AppModel
 import me.kafuuneko.rpclient.libs.character.CharacterCardRepository
@@ -55,12 +52,6 @@ class RPClientApp : Application() {
             androidContext(this@RPClientApp)
             modules(appModules)
         }
-    }
-
-    override fun attachBaseContext(base: Context) {
-        val config = Configuration()
-        config.setLocale(Locale("id"))
-        super.attachBaseContext(base.createConfigurationContext(config))
     }
 }
 

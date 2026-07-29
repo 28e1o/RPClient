@@ -1,11 +1,14 @@
 package me.kafuuneko.rpclient.libs.core
 
+import android.content.Context
+import android.content.res.Configuration
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
 import me.kafuuneko.rpclient.ui.theme.AppTheme
+import java.util.Locale
 
 /**
  * Compose Activity 基类。
@@ -23,6 +26,12 @@ abstract class CoreActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         initView()
+    }
+
+    override fun attachBaseContext(base: Context) {
+        val config = Configuration(base.resources.configuration)
+        config.setLocale(Locale("id"))
+        super.attachBaseContext(base.createConfigurationContext(config))
     }
 
     private fun initView() {
