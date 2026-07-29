@@ -704,4 +704,10 @@
     <string name="generation_error_http">The model provider returned HTTP %1$d.</string>
     <string name="generation_error_network">Could not reach the model provider. Check the network and try again.</string>
     <string name="generation_error_empty_response">The model returned an empty response.</string>
+    <string name="json_payload_unavailable">JSON payload is not available.</string>
+    <string name="json_root_label">Root</string>
+    <string name="untitled_label">Untitled</string>
+    <string name="default_user_name">You</string>
+    <string name="regex_status_changed">changed</string>
+    <string name="regex_status_matched">matched</string>
 </resources>

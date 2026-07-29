@@ -1,8 +1,10 @@
 package me.kafuuneko.rpclient.feature.groupchatcreate
 
+import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import me.kafuuneko.rpclient.R
+import org.koin.core.component.inject
 import me.kafuuneko.rpclient.feature.groupchatcreate.model.GroupChatCreateCharacterItem
 import me.kafuuneko.rpclient.feature.groupchatcreate.model.GroupChatCreateGreetingState
 import me.kafuuneko.rpclient.feature.groupchatcreate.model.GroupChatGreetingCharacterItem
@@ -36,6 +38,7 @@ class GroupChatCreateViewModel :
     CoreViewModelWithEvent<GroupChatCreateUiIntent, GroupChatCreateUiState>(
         GroupChatCreateUiState.None
     ), KoinComponent {
+    private val mContext by inject<Context>()
     private val mCharacterRepository by inject<CharacterRepository>()
     private val mGroupChatRepository by inject<GroupChatRepository>()
     private val mLorebookRepository by inject<LorebookRepository>()
@@ -275,7 +278,7 @@ class GroupChatCreateViewModel :
         }
         uiState.copy(loadState = GroupChatCreateLoadState.Creating).setup()
         val createTime = System.currentTimeMillis()
-        val userName = AppModel.userName.trim().ifBlank { "You" }
+        val userName = AppModel.userName.trim().ifBlank { mContext.getString(R.string.default_user_name) }
         val greetingCandidates = uiState.greetingState.characters.map {
             GroupChatGreetingCandidate(
                 characterId = it.id,

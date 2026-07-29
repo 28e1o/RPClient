@@ -1,9 +1,11 @@
 package me.kafuuneko.rpclient.feature.chatcreate
 
+import android.content.Context
 import android.os.Bundle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import me.kafuuneko.rpclient.R
+import org.koin.core.component.inject
 import me.kafuuneko.rpclient.feature.chat.ChatActivity
 import me.kafuuneko.rpclient.feature.chatcreate.model.ChatCreateForm
 import me.kafuuneko.rpclient.feature.chatcreate.model.ChatCreateCharacterItem
@@ -34,6 +36,7 @@ import org.koin.core.component.inject
 class ChatCreateViewModel : CoreViewModelWithEvent<ChatCreateUiIntent, ChatCreateUiState>(
     ChatCreateUiState.None
 ), KoinComponent {
+    private val mContext by inject<Context>()
     private val mCharacterRepository by inject<CharacterRepository>()
     private val mLorebookRepository by inject<LorebookRepository>()
     private val mChatRepository by inject<ChatRepository>()
@@ -192,7 +195,7 @@ class ChatCreateViewModel : CoreViewModelWithEvent<ChatCreateUiIntent, ChatCreat
         }
         val firstMessageSelection = uiState.resolveFirstMessageSelection() ?: return
         uiState.copy(loadState = ChatCreateLoadState.Creating).setup()
-        val userName = AppModel.userName.trim().ifBlank { "You" }
+        val userName = AppModel.userName.trim().ifBlank { mContext.getString(R.string.default_user_name) }
         val userDescription = AppModel.userDescription.trim()
         val createTime = System.currentTimeMillis()
         val sessionTitle = uiState.form.normalizedTitle(createTime)

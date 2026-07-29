@@ -556,7 +556,7 @@ class ChatViewModel : CoreViewModelWithEvent<ChatUiIntent, ChatUiState>(
         if (!isStateOf<ChatUiState.Normal>()) return
         val sessionId = mSessionId ?: return
         withContext(Dispatchers.IO) {
-            mChatRepository.updateSessionUserName(sessionId, intent.value.trim().ifBlank { "You" })
+            mChatRepository.updateSessionUserName(sessionId, intent.value.trim().ifBlank { mContext.getString(R.string.default_user_name) })
         }
         refreshUiState(sessionId = sessionId)
     }

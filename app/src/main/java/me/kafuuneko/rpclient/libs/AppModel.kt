@@ -144,7 +144,7 @@ Rules:
     var streamEnabled by booleanPref(default = true)
 
     // Prompt 宏中的用户名称，对应 {{user}}。
-    var userName by stringPref(default = "You")
+    var userName by stringPref(default = "")
 
     // 用户头像，存储的是 File UUID。
     var userAvatar by stringPref(default = "")

@@ -111,7 +111,7 @@ fun PromptInspectorDialog(
                                                 R.string.regex_temporary
                                             }
                                         ) + " · " +
-                                        if (hit.changed) "changed" else "matched",
+                                        if (hit.changed) stringResource(R.string.regex_status_changed) else stringResource(R.string.regex_status_matched),
                                     modifier = Modifier.padding(12.dp),
                                     style = MaterialTheme.typography.bodySmall
                                 )

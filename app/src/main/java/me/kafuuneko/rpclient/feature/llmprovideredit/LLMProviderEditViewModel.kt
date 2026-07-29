@@ -351,7 +351,7 @@ class LLMProviderEditViewModel :
                 val latestState = getOrNull<LLMProviderEditUiState.Normal>() ?: return@launch
                 latestState.copy(
                     testState = LLMProviderEditTestState.Success(
-                        response.content.ifBlank { "Model test successful" }
+                        response.content.ifBlank { mContext.getString(R.string.test_success) }
                     )
                 ).setup()
             } catch (_: CancellationException) {

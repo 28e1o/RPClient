@@ -704,4 +704,10 @@
     <string name="generation_error_http">Penyedia model mengembalikan HTTP %1$d.</string>
     <string name="generation_error_network">Tidak dapat menjangkau penyedia model. Periksa jaringan dan coba lagi.</string>
     <string name="generation_error_empty_response">Model mengembalikan respons kosong.</string>
+    <string name="json_payload_unavailable">Payload JSON tidak tersedia.</string>
+    <string name="json_root_label">Akar</string>
+    <string name="untitled_label">Tanpa Judul</string>
+    <string name="default_user_name">Anda</string>
+    <string name="regex_status_changed">berubah</string>
+    <string name="regex_status_matched">cocok</string>
 </resources>

@@ -436,7 +436,7 @@ class MainViewModel : CoreViewModelWithEvent<MainUiIntent, MainUiState>(
     private fun onChangeUserName(intent: MainUiIntent.ChangeUserName) {
         val uiState = getOrNull<MainUiState.Normal>() ?: return
         val value = intent.value.trim()
-        AppModel.userName = value.ifBlank { "You" }
+        AppModel.userName = value.ifBlank { mContext.getString(R.string.default_user_name) }
         uiState.copy(
             settingsState = uiState.settingsState.copy(userName = intent.value)
         ).setup()

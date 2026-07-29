@@ -1,5 +1,7 @@
 package me.kafuuneko.rpclient.feature.jsonviewer
 
+import android.content.Context
+import me.kafuuneko.rpclient.R
 import me.kafuuneko.rpclient.feature.jsonviewer.model.JsonViewerEntry
 import me.kafuuneko.rpclient.feature.jsonviewer.model.JsonViewerNodeType
 import me.kafuuneko.rpclient.feature.jsonviewer.presentation.JsonViewerUiIntent
@@ -10,6 +12,7 @@ import me.kafuuneko.rpclient.libs.utils.toPreview
 import org.json.JSONArray
 import org.json.JSONObject
 import org.json.JSONTokener
+import org.koin.core.component.inject
 
 /**
  * JSON 树查看器状态持有者。
@@ -19,6 +22,8 @@ import org.json.JSONTokener
 class JsonViewerViewModel : CoreViewModel<JsonViewerUiIntent, JsonViewerUiState>(
     JsonViewerUiState.None
 ) {
+    private val mContext by inject<Context>()
+
     /** 当前载荷标题、根节点与从根到当前节点的导航路径。 */
     private var mTitle: String = ""
     private var mRoot: Any? = null
@@ -32,7 +37,7 @@ class JsonViewerViewModel : CoreViewModel<JsonViewerUiIntent, JsonViewerUiState>
         if (payload == null) {
             JsonViewerUiState.Error(
                 title = "",
-                message = "JSON payload is not available.",
+                message = mContext.getString(R.string.json_payload_unavailable),
                 rawPreview = ""
             ).setup()
             return
@@ -43,7 +48,7 @@ class JsonViewerViewModel : CoreViewModel<JsonViewerUiIntent, JsonViewerUiState>
         if (parsed.isFailure) {
             JsonViewerUiState.Error(
                 title = mTitle,
-                message = "Invalid JSON.",
+                message = mContext.getString(R.string.json_invalid_title),
                 rawPreview = payload.json.toPreview()
             ).setup()
             return
@@ -92,7 +97,7 @@ class JsonViewerViewModel : CoreViewModel<JsonViewerUiIntent, JsonViewerUiState>
         val current = currentNode()
         return JsonViewerUiState.Normal(
             title = mTitle,
-            path = listOf("Root") + mPath.map { it.label },
+            path = listOf(mContext.getString(R.string.json_root_label)) + mPath.map { it.label },
             currentType = current.nodeType(),
             childCount = current.childCount(),
             entries = current.toEntries(),
