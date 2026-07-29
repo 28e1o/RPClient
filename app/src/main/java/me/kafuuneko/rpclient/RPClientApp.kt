@@ -1,8 +1,11 @@
 package me.kafuuneko.rpclient
 
 import android.app.Application
+import android.os.Build
+import android.os.LocaleList
 import androidx.room.Room
 import com.chibatching.kotpref.Kotpref
+import java.util.Locale
 import com.google.gson.Gson
 import me.kafuuneko.rpclient.libs.AppModel
 import me.kafuuneko.rpclient.libs.character.CharacterCardRepository
@@ -47,10 +50,18 @@ import java.util.concurrent.TimeUnit
 class RPClientApp : Application() {
     override fun onCreate() {
         super.onCreate()
+        setLocale()
         Kotpref.init(this)
         startKoin {
             androidContext(this@RPClientApp)
             modules(appModules)
+        }
+    }
+
+    private fun setLocale() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val localeManager = getSystemService(LOCALE_SERVICE) as android.app.LocaleManager
+            localeManager.applicationLocales = LocaleList.forLocales(Locale("id"))
         }
     }
 }
