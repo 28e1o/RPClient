@@ -13,7 +13,7 @@ import java.util.Locale
 /**
  * Compose Activity 基类。
  *
- * 统一应用主题和 Edge-to-Edge 配置，具体页面只实现 [ViewContent]。
+ * 统一应用主题、Edge-to-Edge 配置及 Bahasa Indonesia，具体页面只实现 [ViewContent]。
  */
 abstract class CoreActivity : ComponentActivity() {
     /** 子类可关闭默认的 Edge-to-Edge。 */
@@ -25,6 +25,7 @@ abstract class CoreActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        applyLocale()
         initView()
     }
 
@@ -32,6 +33,13 @@ abstract class CoreActivity : ComponentActivity() {
         val config = Configuration(base.resources.configuration)
         config.setLocale(Locale("id"))
         super.attachBaseContext(base.createConfigurationContext(config))
+    }
+
+    private fun applyLocale() {
+        val config = Configuration(resources.configuration)
+        config.setLocale(Locale("id"))
+        @Suppress("DEPRECATION")
+        resources.updateConfiguration(config, resources.displayMetrics)
     }
 
     private fun initView() {
