@@ -8,6 +8,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.google.gson.JsonParser
+import android.content.Context
 import me.kafuuneko.rpclient.R
 import me.kafuuneko.rpclient.feature.llmprovideredit.model.CredentialEditMode
 import me.kafuuneko.rpclient.feature.llmprovideredit.model.LLMProviderEditForm
@@ -43,6 +44,7 @@ class LLMProviderEditViewModel :
     CoreViewModelWithEvent<LLMProviderEditUiIntent, LLMProviderEditUiState>(
         LLMProviderEditUiState.None
     ), KoinComponent {
+    private val mContext by inject<Context>()
     private val mLLMRepository by inject<LLMRepository>()
     private val mLLMClientFactory by inject<LLMClientFactory>()
     private val mModelCatalogRepository by inject<LLMModelCatalogRepository>()

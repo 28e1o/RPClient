@@ -12,6 +12,7 @@ import me.kafuuneko.rpclient.libs.utils.toPreview
 import org.json.JSONArray
 import org.json.JSONObject
 import org.json.JSONTokener
+import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
 /**
@@ -21,7 +22,7 @@ import org.koin.core.component.inject
  */
 class JsonViewerViewModel : CoreViewModel<JsonViewerUiIntent, JsonViewerUiState>(
     JsonViewerUiState.None
-) {
+), KoinComponent {
     private val mContext by inject<Context>()
 
     /** 当前载荷标题、根节点与从根到当前节点的导航路径。 */
